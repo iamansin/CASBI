@@ -1,0 +1,6 @@
+fastapi
+aiohttp
+asyncio
+pyhton-dotenv
+requests
+aiofiles
