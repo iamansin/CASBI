@@ -3,6 +3,7 @@ import logging
 import json
 from config import VERIFY_TOKEN
 from utils import send_whatsapp_message, download_media
+from input_processor import process_audio_input, process_image_input
 
 router = APIRouter()
 
@@ -45,20 +46,27 @@ async def receive_message(request: Request):
                 msg_type = message.get("type", "")
 
                 if msg_type == "text":
-                    text = message.get("text", {}).get("body", "")
-                    logging.info(f"Received text from {sender_id}: {text}")
+                    agent_input = message.get("text", {}).get("body", None)
+                    logging.info(f"Received text from {sender_id}: {agent_input}")
 
                 elif msg_type == "image":
                     image_id = message.get("image", {}).get("id", "")
                     logging.info(f"Received image from {sender_id}, Image ID: {image_id}")
-                    await download_media(image_id)
+                    file_path = await download_media(image_id)
+                    agent_input = process_image_input(file_path)
+                    
 
                 elif msg_type == "audio":
                     audio_id = message.get("audio", {}).get("id", "")
                     logging.info(f"Received voice note from {sender_id}, Audio ID: {audio_id}")
-                    await download_media(audio_id)
-
-                # Send acknowledgment response
-                await send_whatsapp_message(sender_id, "Got your message!")
+                    file_path = await download_media(audio_id)
+                    agent_input = process_audio_input(file_path) 
+                    
+                    
+                if agent_input:
+                    message = agent(agent_input)
+                else:
+                    message = None
+                await send_whatsapp_message(sender_id, message)
 
     return {"status": "received"}

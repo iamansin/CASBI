@@ -9,12 +9,14 @@ HEADERS = {
     "Content-Type": "application/json"
 }
 
-async def send_whatsapp_message(recipient_id: str, text: str):
+async def send_whatsapp_message(recipient_id: str, text: str | None):
     """
     Sends a WhatsApp message to a user.
     """
     url = f"https://graph.facebook.com/{VERSION}/{PHONE_NUMBER_ID}/messages"
-    
+    if text is None:
+        text = "We are unable to process your request right now. Please Try again Later!"
+        
     payload = {
         "messaging_product": "whatsapp",
         "recipient_type": "individual",

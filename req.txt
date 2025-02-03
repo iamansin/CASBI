@@ -4,3 +4,6 @@ asyncio
 pyhton-dotenv
 requests
 aiofiles
+langgraph
+langchain
+langchain-groq
