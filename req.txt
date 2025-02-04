@@ -7,3 +7,6 @@ aiofiles
 langgraph
 langchain
 langchain-groq
+groq
+huggingface_hub
+transformers

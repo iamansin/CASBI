@@ -1,0 +1,19 @@
+2025-02-04 12:26:50,932 - Error processing image file: 401 Client Error: Unauthorized for url: https://api-inference.huggingface.co/models/Qwen/Qwen2-VL-7B-Instruct/v1/chat/completions (Request ID: 2QVtjM)
+
+401 Unauthorized
+2025-02-04 12:28:23,151 - Error processing image file: 422 Client Error: Unprocessable Entity for url: https://api-inference.huggingface.co/models/Qwen/Qwen2-VL-7B-Instruct/v1/chat/completions (Request ID: W2FRrd)
+
+Input validation error: `inputs` tokens + `max_new_tokens` must be <= 4096. Given: 8769 `inputs` tokens and 500 `max_new_tokens`
+Make sure 'text-generation' task is supported by the model.
+2025-02-04 12:36:04,855 - Error processing image file: 422 Client Error: Unprocessable Entity for url: https://api-inference.huggingface.co/models/Qwen/Qwen2-VL-7B-Instruct/v1/chat/completions (Request ID: 13oUGa)
+
+Input validation error: `inputs` tokens + `max_new_tokens` must be <= 4096. Given: 8769 `inputs` tokens and 500 `max_new_tokens`
+Make sure 'text-generation' task is supported by the model.
+2025-02-04 13:57:07,880 - Error processing image file: 404 Client Error: Not Found for url: https://api-inference.huggingface.co/models/meta-llama/Llama-3.2-11B-Vision-Instruc/v1/chat/completions (Request ID: uolnOZ)
+
+Not Found: Model not found
+2025-02-04 14:12:40,544 - Processing audio file for user ./downloads/audio (4).wav...
+2025-02-04 14:12:40,544 - Error processing audio file: 'Groq' object has no attribute 'transcribe'
+2025-02-04 14:13:52,305 - Processing audio file for user ./downloads/audio (4).wav...
+2025-02-04 14:13:54,935 - HTTP Request: POST https://api.groq.com/openai/v1/audio/transcriptions "HTTP/1.1 200 OK"
+2025-02-04 14:13:54,936 - Successfully processed audio file.

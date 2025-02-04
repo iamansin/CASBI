@@ -61,12 +61,13 @@ async def receive_message(request: Request):
                     logging.info(f"Received voice note from {sender_id}, Audio ID: {audio_id}")
                     file_path = await download_media(audio_id)
                     agent_input = process_audio_input(file_path) 
-                    
-                    
+                
+                message = None
+                
                 if agent_input:
                     message = agent(agent_input)
-                else:
-                    message = None
+                    
+                
                 await send_whatsapp_message(sender_id, message)
 
     return {"status": "received"}
