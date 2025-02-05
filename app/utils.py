@@ -1,9 +1,9 @@
 import httpx
-import logging
 import aiofiles
 import os
-from config import ACCESS_TOKEN, PHONE_NUMBER_ID, VERSION
-
+from config import PHONE_NUMBER_ID, VERSION
+ACCESS_TOKEN="EAAdMNBkxpuoBO2rjhSyyYpfQRM5mltRlRY0HsEWxPkn1b93rdEvQ5XqJkT5aLwdJjt6L36z4ZCXzlC0ZAIQAxz9R47XEhsjfO0zEwdkvc33mOeeZAhrZCS6AwvkJIN3x8hCeT8t5cWMw7bZBz2452fzQLpAi3cznZB5KorQrVGgsciQaKbn0ZB7AH76SYp1eTAyFabeGeIQFgkm6c6iivbXISj0WClxN0TikZAUZD"
+from logger import LOGGER
 HEADERS = {
     "Authorization": f"Bearer {ACCESS_TOKEN}",
     "Content-Type": "application/json"
@@ -27,7 +27,7 @@ async def send_whatsapp_message(recipient_id: str, text: str | None):
 
     async with httpx.AsyncClient() as client:
         response = await client.post(url, headers=HEADERS, json=payload)
-        logging.info(f"Sent message to {recipient_id}: {text} | Status: {response.status_code}")
+        LOGGER.info(f"Sent message to {recipient_id}: {text} | Status: {response.status_code}")
 
     return response.json()
 
@@ -43,24 +43,24 @@ async def download_media(media_id: str, save_dir: str = "downloads"):
         response = await client.get(url, headers=HEADERS)
         
         if response.status_code != 200:
-            logging.error(f"Failed to fetch media URL: {response.status_code}")
+            LOGGER.error(f"Failed to fetch media URL: {response.status_code}")
             return None
 
         media_data = response.json()
         media_url = media_data.get("url")
 
     if not media_url:
-        logging.error("Media URL not found.")
+        LOGGER.error("Media URL not found.")
         return None
 
-    logging.info(f"Downloading media from: {media_url}")
+    LOGGER.info(f"Downloading media from: {media_url}")
 
     # Step 2: Download the media file
     async with httpx.AsyncClient() as client:
         response = await client.get(media_url, headers=HEADERS)
 
         if response.status_code != 200:
-            logging.error(f"Failed to download media: {response.status_code}")
+            LOGGER.error(f"Failed to download media: {response.status_code}")
             return None
 
         # Create directory if it doesn't exist
@@ -76,5 +76,5 @@ async def download_media(media_id: str, save_dir: str = "downloads"):
         async with aiofiles.open(file_path, "wb") as f:
             await f.write(response.content)
 
-    logging.info(f"Media saved at: {file_path}")
+    LOGGER.info(f"Media saved at: {file_path}")
     return file_path

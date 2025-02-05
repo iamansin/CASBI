@@ -6,8 +6,7 @@ import aiofiles
 import base64
 from pathlib import Path
 import time 
-import logging
-logging.basicConfig(filename="./logs/app.log", level=logging.INFO, format="%(asctime)s - %(message)s")
+from logger import LOGGER
 
 Audio_Client = Groq(api_key=GROQ_API_KEY)
 Image_Client = InferenceClient(
@@ -21,7 +20,7 @@ async def process_audio_input(audio_file_path : str):
     audio_file : str (path for audio to be processed) 
     """
     start_time = time.time()
-    logging.info(f"Processing audio file for user {audio_file_path}...")
+    LOGGER.info(f"Processing audio file for user {audio_file_path}...")
  
     try:
         with open(audio_file_path, "rb") as audio_file:
@@ -32,11 +31,11 @@ async def process_audio_input(audio_file_path : str):
             ) 
         text = transcription_result.text.strip()
         print(f"Time taken to process the audio: {time.time()-start_time}")
-        logging.info("Successfully processed audio file.")
+        LOGGER.info("Successfully processed audio file.")
         return text
     
     except Exception as e:
-        logging.error(f"Error processing audio file: {e}")
+        LOGGER.error(f"Error processing audio file: {e}")
         return "Error processing audio file. Please try again."
 
 async def process_image_input(image_file_path : str):
@@ -76,7 +75,7 @@ async def process_image_input(image_file_path : str):
             ]
         }
     ]
-    logging.info("Sending request to the model")
+    LOGGER.info("Sending request to the model")
     response_time = time.time()
     try:
         completion = Image_Client.chat.completions.create(
@@ -84,10 +83,10 @@ async def process_image_input(image_file_path : str):
             messages=messages, 
             max_tokens=500
         )
-        logging.info(f"Time taken to process the image:{time.time() - start_time}, Model response time : {time.time()- response_time}")
+        LOGGER.info(f"Time taken to process the image:{time.time() - start_time}, Model response time : {time.time()- response_time}")
         return completion.choices[0].message.content
 
     except Exception as e:
-        logging.error(f"Error processing image file: {e}")
+        LOGGER.error(f"Error processing image file: {e}")
         return "Error processing image file. Please try again."
 
