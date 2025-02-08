@@ -2,60 +2,53 @@ from langgraph.graph import StateGraph, END
 from langchain.prompts import PromptTemplate
 from langchain_core.output_parsers import PydanticOutputParser
 from logger import LOGGER
+import time
 import json
 import asyncio
-from langchain.runnables import RunnableConfig
-from agent_state import AgentState
-from typing_extensions import List
-from pydantic import BaseModel, Field
+from typing_extensions import List 
+from pydantic import BaseModel
+from langchain_core.runnables.config import RunnableConfig
+from .agent_state import AgentState, ToolExecutionPlan, Output_Structure
+
 from prompts import MAIN_PROMPT, FINAL_PROMPT
 
-class Thought_Structure(BaseModel):
-    tool_list : List[str] = Field(description="This field contains a list of tool/tools which are to be used right now.")
-    thought : str = Field(description= "This field contains initial plan.")
-    
-class Output_Structure(BaseModel):
-    pass
-    
 
 
 class Whatsapp_Agent:
-    def __init__(self, llm_dict: dict, tool_list : List | None):
-        self._llm_dict = llm_dict,
+    def __init__(self, llm_dict: dict, tool_list : List | None = None):
+        self._llm_dict = llm_dict
         self._tool_dict = {tool.name: tool for tool in tool_list} if tool_list is not None else {},
         self.graph = self.compile_graph()
-        self.history = self.get
         
     def compile_graph(self):
         graph_builder = StateGraph(AgentState)
-        graph_builder.add_node("main_node",self.main_node)
-        graph_builder.add_node("search_vector_store", self.search_vector_store)
-        graph_builder.add_conditional_edges("main_node", self.router, {
-            "vectore_store" : "search_vector_store"
-        })
-        return graph_builder.compile() 
+        graph_builder.add_node("Main_node",self.Main_node)
+        graph_builder.add_node("Final_node",self.Final_node)
+        graph_builder.set_entry_point("Main_node")
+        graph_builder.add_edge("Main_node" , "Final_node")
+        graph_builder.add_edge("Final_node",END)
+        graph = graph_builder.compile() 
+        return graph 
     
     async def get_structured_response(self, message: str, output_structure : BaseModel):
-        """
-        Get a structured response from the LLM with retries.
-        
+        """Get a structured response from the LLM with retries.
         Args:
             message (str): The input message to the LLM.
-
         Returns:
             JSONStructOutput: The structured output from the LLM if successful.
-        
         Raises:
             RuntimeError: If all retry attempts fail.
         """
+        start_time = time.time()
         llm_structured = self._llm_dict["Groq"].with_structured_output(output_structure)
         
         for attempt in range(1,4):
             try:
                 LOGGER.info(f"Attempt {attempt}: Invoking LLM")
-                structured_response = llm_structured.ainvoke(message)
-                LOGGER.warning(f"The response recieved from LLM in structured format ---> {structured_response}")
+                structured_response = await llm_structured.ainvoke(message)
+                # LOGGER.warning(f"The response recieved from LLM in structured format ---> {structured_response}")
                 if structured_response:
+                    print(f"Time taken to get the structured response is {time.time()-start_time}")
                     return structured_response
                 continue
             except Exception as e:
@@ -63,50 +56,57 @@ class Whatsapp_Agent:
                 LOGGER.info("Retrying...")
         # If all retries fail, raise an exception
         LOGGER.critical("Failed to get a structured response from the LLM after 3 attempts.")
+        
         raise RuntimeError("Failed to get a structured response from the LLM after 3 attempts.")
     
     
-    async def main_node(self, state :AgentState, config :RunnableConfig):
-        
-        #Initially getting the long term memory from Redis/mongoDB
-        long_term_history = await self.get_user_history(phone_number = config["phone_number"])
-        state["user_long_term_history"] = long_term_history
-        
+    async def Main_node(self, state :AgentState, config :RunnableConfig):
+        """This is the main entry node for the 
+        Args:
+            state (AgentState) : This the state that has to be passed on 
+            config (RunnablConfig) : This parameter takes config which has user phone number.
+        Returns:
+            """
         #Checking if the request is direct or redirected from any tool
         if state["tool_redirect"]:
             last_tool_update =  state["tool_result"][-1]
             tool_result = [result.content for result in last_tool_update] if len(last_tool_update) > 1 else last_tool_update[0].content
             pass
         
-        text_message = state["message"]
-        parser = PydanticOutputParser(pydantic_object=Thought_Structure)
+        #If the message to the direct entry point.
+        text_message = state["message"].content
+        parser = PydanticOutputParser(pydantic_object=ToolExecutionPlan)
         template = PromptTemplate(
                                     template=MAIN_PROMPT,
                                     partial_variables={"format_instructions": parser.get_format_instructions()},
                                 )
-        llm_message = template.format(user_message = text_message)
-        response = await self.get_structured_response(llm_message,Thought_Structure)
-        state["tools"]= response.tool_list
-        state["plan"] = response.thought
+        llm_message = template.format(user_message = text_message, user_history = state["user_long_term_history"] )
+        #Getting response from the LLM
+        response = await self.get_structured_response(llm_message,ToolExecutionPlan)
+        state.setdefault("understanding", []).append(response.understanding)
+        state.setdefault("selected_tools", []).append(response.selected_tools)
+        state.setdefault("primary_objective", []).append(response.primary_objective)
+        state.setdefault("execution_sequence", []).append(response.execution_sequence)
+
         return state
-                
-                
-    async def search_vector_store(self, state:AgentState):
-        pass
     
-    async def final_node(self, state:AgentState):
-        message = state["message"]
-        long_term_history = state["user_long_term_history"]
-        session_history = state["user_short_term_history"]
+    async def Final_node(self, state:AgentState):
+        message = state["message"].content
+        long_term_history = " ".join(state["user_long_term_history"])
+        session_history = " ".join(state.get("user_short_term_history", [])) 
+        primary_objective = state["primary_objective"][-1]
+        execution_plan = " ".join(state["execution_sequence"][-1]) 
         parser = PydanticOutputParser(pydantic_object=Output_Structure)
         template = PromptTemplate(
                                     template=FINAL_PROMPT,
                                     partial_variables={"format_instructions": parser.get_format_instructions()},
                                 )
-        llm_message = template.format(long_term_history = long_term_history, session_history = session_history, user_message = message)
+        llm_message = template.format(long_term_history = long_term_history, session_history = session_history, 
+                                      user_message = message, objective = primary_objective, execution_plan = execution_plan)
         response = await self.get_structured_response(llm_message,Output_Structure)
-        
-        
-        
-        
+        state["final_response"] = response.response
+        return state
     
+    async def main_node_router(self,state : AgentState):
+        selected_tool_dict = state["selected_tools"][-1]
+        
