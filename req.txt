@@ -8,5 +8,8 @@ langgraph
 langchain
 langchain-groq
 groq
-huggingface_hub
+huggingface_hubq
 transformers
+redis
+motor 
+pymongo

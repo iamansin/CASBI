@@ -1,11 +1,19 @@
 from fastapi import APIRouter, Request, HTTPException
 import json
-from config import VERIFY_TOKEN,PHONE_NUMBER_ID
+from config import VERIFY_TOKEN,PHONE_NUMBER_ID, GROQ_API_KEY
 from utils import send_whatsapp_message, download_media
 from input_processor import process_audio_input, process_image_input
 from logger import LOGGER
 from Agent.whatsapp_agent import Whatsapp_Agent
+from Agent.agent_memory import retrieve_memory, store_memory
+from langchain_groq import ChatGroq
+from langchain_core.messages import HumanMessage
 
+# Initialize the agent
+groq = ChatGroq(api_key = GROQ_API_KEY, model="llama-3.3-70b-versatile", temperature=0.0)
+llm_dict = {"Groq":groq,}
+agent = Whatsapp_Agent(llm_dict=llm_dict)
+TIMERS = {}
 
 router = APIRouter()
 
@@ -70,9 +78,25 @@ async def receive_message(request: Request):
                 message = None
                 
                 if agent_input:
-                    message = agent(agent_input)
-                    
-                
+                    # Retrieve user's long-term memory
+                    try:
+                        memory = await retrieve_memory(sender_id)
+                        long_term_memory = memory.get("long_term_memory", ["No previous memory, New user"])
+                        short_term_memory = memory.get("short_term_memory", [""])
+                        
+                        initial_state = {"message": HumanMessage(content=agent_input), "user_long_term_history" : long_term_memory,
+                                        "short_term_memory": short_term_memory,"tool_redirect":False}
+                        
+                        res = await agent.graph.ainvoke(initial_state, stream_mode="values")
+                        message = res.get("final_response", None)
+                        LOGGER.info(f"Response from agent: {message}")
+                            
+                    except Exception as e:
+                        LOGGER.error(f"Error processing message: {e}")
+                        message = None
+
                 await send_whatsapp_message(sender_id, message)
+                new_mem = {"long_term_memory" : long_term_memory, "short_term_memory" : [agent_input + message] }
+                await store_memory(sender_id, new_mem, TIMERS)
 
     return {"status": "received"}

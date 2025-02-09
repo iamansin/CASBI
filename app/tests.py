@@ -1,27 +1,19 @@
-from Agent.whatsapp_agent import Whatsapp_Agent
 import asyncio
-from langchain_core.messages import HumanMessage
-from langchain_groq import ChatGroq
-from config import GROQ_API_KEY
+import redis.asyncio as aioredis
+from motor.motor_asyncio import AsyncIOMotorClient
 
-llm = ChatGroq(api_key=GROQ_API_KEY,model="llama-3.1-70b-versatile")
-Agent = Whatsapp_Agent(llm_dict={"Groq":llm})
-
-Graph = Agent.graph
-
-async def workflow(query: str):
-    user_query = HumanMessage(content=query)
-    response = []
+async def test_connections():
     try:
-        # Use `astream` to get async generator
-        res = Graph.astream({"user_query": user_query}, stream_mode="messages")
-        async for event in res:
-            node = event[1].get('langgraph_node')
-            if node == "Final":
-                response.append(event[0].content)
-                yield event[0].content
-    
-    except Exception as e:
-        print(f"There was some error while getting response from the Groq LLM -> {e}")
+        redis_client = aioredis.from_url("redis://localhost:6379")
+        await redis_client.set("test_key", "Hello Redis")
+        print("✅ Redis Connected:", await redis_client.get("test_key"))
 
-asyncio.run(workflow("hello can you tell me the best policiy for my case"))
+        mongo_client = AsyncIOMotorClient("mongodb://localhost:27017")
+        db = mongo_client["test_db"]
+        await db.test_collection.insert_one({"message": "Hello MongoDB"})
+        doc = await db.test_collection.find_one({"message": "Hello MongoDB"})
+        print("✅ MongoDB Connected:", doc)
+    except Exception as e:
+        print("❌ Connection Error:", e)
+
+asyncio.run(test_connections())
