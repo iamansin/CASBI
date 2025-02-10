@@ -2,8 +2,8 @@ import httpx
 import aiofiles
 import os
 from config import PHONE_NUMBER_ID, VERSION
-ACCESS_TOKEN="EAAdMNBkxpuoBO2rjhSyyYpfQRM5mltRlRY0HsEWxPkn1b93rdEvQ5XqJkT5aLwdJjt6L36z4ZCXzlC0ZAIQAxz9R47XEhsjfO0zEwdkvc33mOeeZAhrZCS6AwvkJIN3x8hCeT8t5cWMw7bZBz2452fzQLpAi3cznZB5KorQrVGgsciQaKbn0ZB7AH76SYp1eTAyFabeGeIQFgkm6c6iivbXISj0WClxN0TikZAUZD"
 from logger import LOGGER
+ACCESS_TOKEN="EAAdMNBkxpuoBO7t4l17QdzXjvUOMscObb0ZCb7eZCiMzDZBYmv4CfzwU7f9ngqSjuF3ha5C6oTQoOtc6Vn8MYG5TF0Sj807Q1uGPf87cYotxJb4Yd9Km72lZBdAYOFoEs1U9BxarYbZAkU6QuyAMZBAmcU2PuxJMamz8TQt0s5zlyBcvTXx21XX4wuljAigB5viEPOehrdZBJF8liL7bNiGjnNQ6193nQP6ss8ZD"
 HEADERS = {
     "Authorization": f"Bearer {ACCESS_TOKEN}",
     "Content-Type": "application/json"
@@ -22,12 +22,16 @@ async def send_whatsapp_message(recipient_id: str, text: str | None):
         "recipient_type": "individual",
         "to": recipient_id,
         "type": "text",
-        "text": {"body": text}
+        "text": {"body": text.strip()}
     }
-
-    async with httpx.AsyncClient() as client:
-        response = await client.post(url, headers=HEADERS, json=payload)
-        LOGGER.info(f"Sent message to {recipient_id}: {text} | Status: {response.status_code}")
+    try :
+        async with httpx.AsyncClient() as client:
+            response = await client.post(url, headers=HEADERS, json=payload)
+            print(response.status_code, response.text)
+            LOGGER.info(f"Sent message to {recipient_id}| Status: {response.status_code}")
+    
+    except Exception as e:
+        print(f"There was some error while sending the request back to the user : {e}")
 
     return response.json()
 

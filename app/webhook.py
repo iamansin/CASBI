@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Request, HTTPException
 import json
+import time 
 from config import VERIFY_TOKEN,PHONE_NUMBER_ID, GROQ_API_KEY
 from utils import send_whatsapp_message, download_media
 from input_processor import process_audio_input, process_image_input
@@ -37,7 +38,7 @@ async def receive_message(request: Request):
     Handles incoming WhatsApp messages.
     """
     payload = await request.json()
-    LOGGER.info(f"Received payload: {json.dumps(payload, indent=2)}")
+    LOGGER.info(f"Received payload: {payload}")
 
     # Ensure it's a valid WhatsApp message
     for entry in payload.get("entry", []):
@@ -80,23 +81,34 @@ async def receive_message(request: Request):
                 if agent_input:
                     # Retrieve user's long-term memory
                     try:
+                        rst = time.time()
                         memory = await retrieve_memory(sender_id)
-                        long_term_memory = memory.get("long_term_memory", ["No previous memory, New user"])
-                        short_term_memory = memory.get("short_term_memory", [""])
-                        
-                        initial_state = {"message": HumanMessage(content=agent_input), "user_long_term_history" : long_term_memory,
-                                        "short_term_memory": short_term_memory,"tool_redirect":False}
-                        
-                        res = await agent.graph.ainvoke(initial_state, stream_mode="values")
+                        LOGGER.info(f"The time taken to retrieve memory is {time.time() - rst}")
+                        long_term_memory = " ".join(memory.get("long_term_memory", ["No previous memory, New user"]))
+                        short_term_memory = " ".join(memory.get("short_term_memory", [""]))
+                        print(f"The long_term_memory is {long_term_memory}")
+                        print(f"The short_term_memory is {short_term_memory}")
+                        initial_state = {"message": HumanMessage(content=agent_input), "user_long_term_memory" : long_term_memory,
+                                        "user_short_term_memory": short_term_memory,"tool_redirect":False}
+                        try:
+                            res = await agent.graph.ainvoke(initial_state, stream_mode="values")
+                        except KeyError as e:
+                            LOGGER.critical(f"Missing Key in agent invocation: {e}")
+                        except Exception as e:
+                            LOGGER.critical(e)
                         message = res.get("final_response", None)
-                        LOGGER.info(f"Response from agent: {message}")
+                        print(message)
+                        # LOGGER.info(f"Response from agent: {message}")
                             
                     except Exception as e:
                         LOGGER.error(f"Error processing message: {e}")
-                        message = None
+                        message = None 
 
                 await send_whatsapp_message(sender_id, message)
-                new_mem = {"long_term_memory" : long_term_memory, "short_term_memory" : [agent_input + message] }
-                await store_memory(sender_id, new_mem, TIMERS)
+                if message is not None:
+                    sst = time.time()
+                    new_mem = {"short_term_memory" : [ f" 'user : {agent_input} ,'assistant: {message} "] }
+                    await store_memory(sender_id, new_mem, TIMERS, )
+                    LOGGER.info(f"The time taken to store memory is {time.time() - sst}")
 
     return {"status": "received"}

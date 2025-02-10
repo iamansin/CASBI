@@ -25,6 +25,7 @@ class Whatsapp_Agent:
         graph_builder.add_node("Main_node",self.Main_node)
         graph_builder.add_node("Final_node",self.Final_node)
         graph_builder.set_entry_point("Main_node")
+        graph_builder.add_conditional_edges("Main_node", self.main_node_router)
         graph_builder.add_edge("Main_node" , "Final_node")
         graph_builder.add_edge("Final_node",END)
         graph = graph_builder.compile() 
@@ -60,7 +61,7 @@ class Whatsapp_Agent:
         raise RuntimeError("Failed to get a structured response from the LLM after 3 attempts.")
     
     
-    async def Main_node(self, state :AgentState, config :RunnableConfig):
+    async def Main_node(self, state :AgentState):
         """This is the main entry node for the 
         Args:
             state (AgentState) : This the state that has to be passed on 
@@ -80,7 +81,7 @@ class Whatsapp_Agent:
                                     template=MAIN_PROMPT,
                                     partial_variables={"format_instructions": parser.get_format_instructions()},
                                 )
-        llm_message = template.format(user_message = text_message, user_history = state["user_long_term_history"] )
+        llm_message = template.format(user_message = text_message, user_memory = state["user_long_term_memory"], session_memory = state["user_short_term_memory"] )
         #Getting response from the LLM
         response = await self.get_structured_response(llm_message,ToolExecutionPlan)
         state.setdefault("understanding", []).append(response.understanding)
@@ -92,8 +93,8 @@ class Whatsapp_Agent:
     
     async def Final_node(self, state:AgentState):
         message = state["message"].content
-        long_term_history = " ".join(state["user_long_term_history"])
-        session_history = " ".join(state.get("user_short_term_history", [])) 
+        long_term_memory = state["user_long_term_memory"]
+        session_memory = state.get("user_short_term_memory", " ")
         primary_objective = state["primary_objective"][-1]
         execution_plan = " ".join(state["execution_sequence"][-1]) 
         parser = PydanticOutputParser(pydantic_object=Output_Structure)
@@ -101,7 +102,7 @@ class Whatsapp_Agent:
                                     template=FINAL_PROMPT,
                                     partial_variables={"format_instructions": parser.get_format_instructions()},
                                 )
-        llm_message = template.format(long_term_history = long_term_history, session_history = session_history, 
+        llm_message = template.format(long_term_memory = long_term_memory, session_memory = session_memory, 
                                       user_message = message, objective = primary_objective, execution_plan = execution_plan)
         response = await self.get_structured_response(llm_message,Output_Structure)
         state["final_response"] = response.response
@@ -110,3 +111,6 @@ class Whatsapp_Agent:
     async def main_node_router(self,state : AgentState):
         selected_tool_dict = state["selected_tools"][-1]
         
+        
+    async def tool_recommendation(self,state:AgentState):
+        pass

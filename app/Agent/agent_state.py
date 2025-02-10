@@ -9,8 +9,8 @@ class AgentState(TypedDict):
     selected_tools : List[Dict] 
     primary_objective : List[str]
     execution_sequence : List[List[str]]
-    user_long_term_history : List[str] 
-    user_short_term_history : List[str]
+    user_long_term_memory : str
+    user_short_term_memory : str
     final_response : str
     tool_redirect : bool
 
@@ -158,5 +158,7 @@ class ToolExecutionPlan(BaseModel):
 class Output_Structure(BaseModel):
     response : str =Field(description="This field contains final results.")
     
-
+class Memory_Structured_Output(BaseModel):
+    long_term_memory : str = Field(description="This field contains the long term memory that has been extracted from the session converstation.")
+    
     
