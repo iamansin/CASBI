@@ -8,7 +8,7 @@ langgraph
 langchain
 langchain-groq
 groq
-huggingface_hubq
+huggingface_hub
 transformers
 redis
 motor 
