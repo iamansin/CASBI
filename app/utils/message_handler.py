@@ -1,8 +1,8 @@
 import httpx
 import aiofiles
 import os
-from config import PHONE_NUMBER_ID, VERSION
-from logger import LOGGER
+from .config import PHONE_NUMBER_ID, VERSION
+from .logger import LOGGER
 ACCESS_TOKEN="EAAdMNBkxpuoBOZBZCgAMKmZANkkBJ14ZBUoYGDLDTs0iQkH8FiLfj0MZCGZBSSSorNsgnXYJzSff8so3zSlcy5reiSQuZBmxXrc6KR6O3xmOhM7RAGAwSOwEPUKcbBSQKGiEes2AZAfiWIWr5dMZBRw77TXyiSOpxctlHokMoYNCXFIUWqzwDUZA9kLjqXkfTdbNpZA1xsmM0VmPgslb4CUI65vAeqe6AicRw44Y0cZD"
 HEADERS = {
     "Authorization": f"Bearer {ACCESS_TOKEN}",

@@ -1,10 +1,9 @@
 from typing_extensions import Annotated, List, TypedDict, Dict, Any, Literal
-from langgraph.graph.message import add_messages
-from langchain_core.messages import HumanMessage,ToolMessage
+from langchain_core.messages import HumanMessage
 from pydantic import BaseModel, Field
 
 class AgentState(TypedDict):
-    message : HumanMessage
+    message : str
     understanding : List[str] 
     selected_tools : List[Dict] 
     primary_objective : List[str]

@@ -5,7 +5,7 @@ from langchain_core.messages import HumanMessage, ToolMessage
 import asyncio
 import time 
 from langchain_core.runnables.config import RunnableConfig
-from config import GROQ_API_KEY
+from app.utils.config import GROQ_API_KEY
 groq = ChatGroq(api_key = GROQ_API_KEY, model="llama-3.3-70b-versatile", temperature=0.0)
 llm_dict = {"Groq":groq,}
 agent = Whatsapp_Agent(llm_dict=llm_dict)

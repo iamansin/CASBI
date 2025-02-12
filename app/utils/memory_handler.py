@@ -2,14 +2,14 @@ import asyncio
 import redis.asyncio as aioredis
 from motor.motor_asyncio import AsyncIOMotorClient
 import json
-from logger import LOGGER
-from prompts import MEMORY_PROMPT
+from .logger import LOGGER
+from .prompts import MEMORY_PROMPT
 from langchain_core.prompts import PromptTemplate
 from datetime import datetime, timedelta
 from langchain.output_parsers import PydanticOutputParser
 from langchain_groq import ChatGroq
-from .agent_state import Memory_Structured_Output
-from config import GROQ_API_KEY
+from Agent.agent_state import Memory_Structured_Output
+from .config import GROQ_API_KEY
 
 LLM = ChatGroq(api_key = GROQ_API_KEY, model="llama-3.3-70b-versatile", temperature=0.0)
 

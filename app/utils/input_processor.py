@@ -1,12 +1,12 @@
 from groq import Groq
-from config import GROQ_API_KEY, HF_TOKEN
-from prompts import IMAGE_PROMPT
+from .config import GROQ_API_KEY, HF_TOKEN
+from .prompts import IMAGE_PROMPT
+from .logger import LOGGER
 from huggingface_hub import InferenceClient
 import aiofiles
 import base64
 from pathlib import Path
 import time 
-from logger import LOGGER
 
 Audio_Client = Groq(api_key=GROQ_API_KEY)
 Image_Client = InferenceClient(

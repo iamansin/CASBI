@@ -1,8 +1,8 @@
 from fastapi import FastAPI
 from webhook import router as webhook_router
 import uvicorn
-from connection_testing import DatabaseConnectionTester
-from logger import LOGGER
+from utils.connection_testing import DatabaseConnectionTester
+from utils.logger import LOGGER
 import sys
 app = FastAPI(title="WhatsApp Chatbot API")
 

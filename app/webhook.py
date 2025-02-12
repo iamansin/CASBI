@@ -1,12 +1,12 @@
 from fastapi import APIRouter, Request, HTTPException
 import json
 import time 
-from config import VERIFY_TOKEN,PHONE_NUMBER_ID, GROQ_API_KEY
-from utils import send_whatsapp_message, download_media
-from input_processor import process_audio_input, process_image_input
-from logger import LOGGER
+from utils.config import VERIFY_TOKEN,PHONE_NUMBER_ID, GROQ_API_KEY
+from utils.message_handler import send_whatsapp_message, download_media
+from utils.input_processor import process_audio_input, process_image_input
+from utils.memory_handler import retrieve_memory, store_memory
+from utils.logger import LOGGER
 from Agent.whatsapp_agent import Whatsapp_Agent
-from Agent.agent_memory import retrieve_memory, store_memory
 from langchain_groq import ChatGroq
 from langchain_core.messages import HumanMessage
 

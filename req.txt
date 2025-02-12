@@ -13,3 +13,4 @@ transformers
 redis
 motor 
 pymongo
+langchain_experimental
