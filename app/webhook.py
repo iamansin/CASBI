@@ -107,7 +107,7 @@ async def receive_message(request: Request):
                 if message is not None:
                     sst = time.time()
                     new_mem = {"short_term_memory" : [ f" 'user : {agent_input} ,'assistant: {message} "] }
-                    await store_memory(sender_id, new_mem, TIMERS, )
+                    await store_memory(sender_id, new_mem, TIMERS)
                     LOGGER.info(f"The time taken to store memory is {time.time() - sst}")
 
     return {"status": "received"}

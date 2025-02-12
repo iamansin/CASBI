@@ -17,13 +17,23 @@ LLM = ChatGroq(api_key = GROQ_API_KEY, model="llama-3.3-70b-versatile", temperat
 REDIS_URL = "redis://localhost:6379"
 MONGO_URL = "mongodb://127.0.0.1:27017"
 
-redis_client = aioredis.from_url(REDIS_URL, decode_responses=True)
+
+class RedisClient:
+    _instance = None
+
+    @classmethod
+    def get_client(cls):
+        if cls._instance is None:
+            cls._instance = aioredis.Redis(host="localhost", port=6379, decode_responses=True)
+        return cls._instance
+
+redis_client = RedisClient.get_client()
 mongo_client = AsyncIOMotorClient(MONGO_URL)
 db = mongo_client["memory_store"]
 collection = db["user_memory"]
 
 # Expiry time for Redis cache (10 minutes)
-REDIS_EXPIRY = 60  # 10 minutes
+REDIS_EXPIRY = 10  # 10 minutes
 
 async def retrieve_memory(phone_number: str) -> dict:
     """
@@ -55,11 +65,11 @@ async def retrieve_memory(phone_number: str) -> dict:
 
     if user_data and "long_term_memory" in user_data:
         LOGGER.info(f"Found memory in MongoDB for phone number: {phone_number}")
-        memory = user_data["long_term_memory"]
-        LOGGER.info(f"The memory is {memory}")
+        memory = {"long_term_memory" : user_data["long_term_memory"], "short_term_memory" : []}
+        LOGGER.info(f"The memory is {user_data["long_term_memory"]}")
         try:
             # Store in Redis with expiry
-            await redis_client.setex(redis_key, REDIS_EXPIRY, json.dumps(memory))
+            await redis_client.setex(redis_key, 300, json.dumps(memory))
             LOGGER.info(f"Successfully cached MongoDB memory in Redis for phone number: {phone_number}")
             return memory
         except Exception as e:
@@ -93,7 +103,6 @@ async def store_memory(phone_number: str, new_messages: dict, timers: dict):
     LOGGER.info(f"Processing {len(new_messages)} new messages for phone number: {phone_number}")
     existing_memory["short_term_memory"].extend(new_messages["short_term_memory"])
     LOGGER.info(f"Added new short-term memory for phone number: {phone_number}")
-    print(f"This is updated short term memory {existing_memory}")
     # LOGGER.info(f"new memory is {existing_memory}")
     now_timestamp = datetime.utcnow().timestamp()
     try:
@@ -163,21 +172,22 @@ async def schedule_mongo_transfer(phone_number: str):
     except Exception as e:
         LOGGER.error(f"Failed to clean up Redis keys for phone number {phone_number}: {str(e)}")
 
-async def transfer_long_term_to_mongo(phone_number: str, to_be_saved_memory: list[str]):
+async def transfer_long_term_to_mongo(phone_number: str, to_be_saved_memory: str):
     """
-    Transfers long-term memory to MongoDB.
+    Transfers long-term memory to MongoDB by appending new memory entries.
     """
     try:
-        # Update or insert memory into MongoDB
         LOGGER.info(f"Starting MongoDB update for phone number: {phone_number}")
         await collection.update_one(
-            {"phone_number": phone_number},
-            {"$push": {"long_term_history": {"$each": to_be_saved_memory}}},
-            upsert=True
+            {"phone_number": phone_number},  # Find by phone number
+            {"$push": {"long_term_memory": to_be_saved_memory}},  # Append to the array
+            upsert=True  # Insert if not found
         )
+
         LOGGER.info(f"Successfully transferred memory to MongoDB for phone number: {phone_number}")
     except Exception as e:
         LOGGER.error(f"Failed to transfer memory to MongoDB for phone number {phone_number}: {str(e)}")
+
 
 async def extract_long_term_memory(short_term_memory: list[str]) -> str | bool:
     """
@@ -196,7 +206,6 @@ async def extract_long_term_memory(short_term_memory: list[str]) -> str | bool:
         response = await strucuted_llm.ainvoke(message)
         if response.long_term_memory and response.long_term_memory not in {"None", None}:
             LOGGER.info("Successfully extracted long-term memory")
-            print(f"The long term memory to be stord is {response.long_term_memory}")
             return response.long_term_memory
         LOGGER.warning("No content returned from LLM during memory extraction")
         return False
