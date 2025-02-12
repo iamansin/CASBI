@@ -25,7 +25,6 @@ class Whatsapp_Agent:
         graph_builder.add_node("Main_node",self.Main_node)
         graph_builder.add_node("Final_node",self.Final_node)
         graph_builder.set_entry_point("Main_node")
-        graph_builder.add_conditional_edges("Main_node", self.main_node_router)
         graph_builder.add_edge("Main_node" , "Final_node")
         graph_builder.add_edge("Final_node",END)
         graph = graph_builder.compile() 
@@ -40,7 +39,8 @@ class Whatsapp_Agent:
         Raises:
             RuntimeError: If all retry attempts fail.
         """
-        start_time = time.time()
+
+        # start_time = time.time()
         llm_structured = self._llm_dict["Groq"].with_structured_output(output_structure)
         
         for attempt in range(1,4):
@@ -49,7 +49,7 @@ class Whatsapp_Agent:
                 structured_response = await llm_structured.ainvoke(message)
                 # LOGGER.warning(f"The response recieved from LLM in structured format ---> {structured_response}")
                 if structured_response:
-                    print(f"Time taken to get the structured response is {time.time()-start_time}")
+                    # print(f"Time taken to get the structured response is {time.time()-start_time}")
                     return structured_response
                 continue
             except Exception as e:
@@ -82,13 +82,14 @@ class Whatsapp_Agent:
                                     partial_variables={"format_instructions": parser.get_format_instructions()},
                                 )
         llm_message = template.format(user_message = text_message, user_memory = state["user_long_term_memory"], session_memory = state["user_short_term_memory"] )
+        LOGGER.info("Recieved response from the model.")
         #Getting response from the LLM
         response = await self.get_structured_response(llm_message,ToolExecutionPlan)
         state.setdefault("understanding", []).append(response.understanding)
         state.setdefault("selected_tools", []).append(response.selected_tools)
         state.setdefault("primary_objective", []).append(response.primary_objective)
         state.setdefault("execution_sequence", []).append(response.execution_sequence)
-
+        LOGGER.info("STATE updated now forwarding to next node")
         return state
     
     async def Final_node(self, state:AgentState):

@@ -92,14 +92,13 @@ async def receive_message(request: Request):
                                         "user_short_term_memory": short_term_memory,"tool_redirect":False}
                         try:
                             res = await agent.graph.ainvoke(initial_state, stream_mode="values")
+                            message = res.get("final_response", None)
+                            print(message)
                         except KeyError as e:
                             LOGGER.critical(f"Missing Key in agent invocation: {e}")
                         except Exception as e:
                             LOGGER.critical(e)
-                        message = res.get("final_response", None)
-                        print(message)
-                        # LOGGER.info(f"Response from agent: {message}")
-                            
+
                     except Exception as e:
                         LOGGER.error(f"Error processing message: {e}")
                         message = None 

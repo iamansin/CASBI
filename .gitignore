@@ -3,3 +3,7 @@ venv/
 
 # Ignore local environment files
 .env
+
+downloads/
+
+logs/

@@ -3,7 +3,7 @@ import aiofiles
 import os
 from config import PHONE_NUMBER_ID, VERSION
 from logger import LOGGER
-ACCESS_TOKEN="EAAdMNBkxpuoBO7t4l17QdzXjvUOMscObb0ZCb7eZCiMzDZBYmv4CfzwU7f9ngqSjuF3ha5C6oTQoOtc6Vn8MYG5TF0Sj807Q1uGPf87cYotxJb4Yd9Km72lZBdAYOFoEs1U9BxarYbZAkU6QuyAMZBAmcU2PuxJMamz8TQt0s5zlyBcvTXx21XX4wuljAigB5viEPOehrdZBJF8liL7bNiGjnNQ6193nQP6ss8ZD"
+ACCESS_TOKEN="EAAdMNBkxpuoBOZBZCgAMKmZANkkBJ14ZBUoYGDLDTs0iQkH8FiLfj0MZCGZBSSSorNsgnXYJzSff8so3zSlcy5reiSQuZBmxXrc6KR6O3xmOhM7RAGAwSOwEPUKcbBSQKGiEes2AZAfiWIWr5dMZBRw77TXyiSOpxctlHokMoYNCXFIUWqzwDUZA9kLjqXkfTdbNpZA1xsmM0VmPgslb4CUI65vAeqe6AicRw44Y0cZD"
 HEADERS = {
     "Authorization": f"Bearer {ACCESS_TOKEN}",
     "Content-Type": "application/json"

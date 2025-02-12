@@ -159,6 +159,6 @@ class Output_Structure(BaseModel):
     response : str =Field(description="This field contains final results.")
     
 class Memory_Structured_Output(BaseModel):
-    long_term_memory : str = Field(description="This field contains the long term memory that has been extracted from the session converstation.")
+    long_term_memory : str|None = Field(description="This field contains the long term memory that has been extracted from the session converstation.")
     
     

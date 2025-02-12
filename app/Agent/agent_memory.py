@@ -19,11 +19,11 @@ MONGO_URL = "mongodb://127.0.0.1:27017"
 
 redis_client = aioredis.from_url(REDIS_URL, decode_responses=True)
 mongo_client = AsyncIOMotorClient(MONGO_URL)
-db = mongo_client["memory_Store"]
+db = mongo_client["memory_store"]
 collection = db["user_memory"]
 
 # Expiry time for Redis cache (10 minutes)
-REDIS_EXPIRY = 120  # 10 minutes
+REDIS_EXPIRY = 60  # 10 minutes
 
 async def retrieve_memory(phone_number: str) -> dict:
     """
@@ -32,7 +32,7 @@ async def retrieve_memory(phone_number: str) -> dict:
     updates Redis, and returns the memory as a list of strings.
     """
     LOGGER.info(f"Starting memory retrieval for phone number: {phone_number}")
-    redis_key = f"user_long_term_memory:{phone_number}"
+    redis_key = f"user_memory:{phone_number}"
     
     # Check Redis first
     LOGGER.info(f"Checking Redis for key: {redis_key}")
@@ -67,7 +67,7 @@ async def retrieve_memory(phone_number: str) -> dict:
             return memory
 
     LOGGER.info(f"No existing memory found. New user detected: {phone_number}")
-    return {"long_term_memory" : ["No previous memory, New user"]}
+    return {"long_term_memory" : ["No previous memory, New user"], "short_term_memory" : [""]}
 
 async def store_memory(phone_number: str, new_messages: dict, timers: dict):
     """
@@ -93,13 +93,13 @@ async def store_memory(phone_number: str, new_messages: dict, timers: dict):
     LOGGER.info(f"Processing {len(new_messages)} new messages for phone number: {phone_number}")
     existing_memory["short_term_memory"].extend(new_messages["short_term_memory"])
     LOGGER.info(f"Added new short-term memory for phone number: {phone_number}")
-    
+    print(f"This is updated short term memory {existing_memory}")
     # LOGGER.info(f"new memory is {existing_memory}")
     now_timestamp = datetime.utcnow().timestamp()
     try:
         async with redis_client.pipeline() as pipe:
-            pipe.setex(redis_key, REDIS_EXPIRY, json.dumps(existing_memory))
-            pipe.set(last_message_key, now_timestamp, ex=REDIS_EXPIRY)
+            pipe.setex(redis_key, 300 ,json.dumps(existing_memory))
+            pipe.set(last_message_key, now_timestamp)
             await pipe.execute()
             LOGGER.info(f"Successfully stored memory in Redis for phone number: {phone_number}")
     except Exception as e:
@@ -167,10 +167,6 @@ async def transfer_long_term_to_mongo(phone_number: str, to_be_saved_memory: lis
     """
     Transfers long-term memory to MongoDB.
     """
-    if not to_be_saved_memory:
-        LOGGER.info(f"No memory to transfer for phone number: {phone_number}")
-        return
-
     try:
         # Update or insert memory into MongoDB
         LOGGER.info(f"Starting MongoDB update for phone number: {phone_number}")
@@ -183,23 +179,25 @@ async def transfer_long_term_to_mongo(phone_number: str, to_be_saved_memory: lis
     except Exception as e:
         LOGGER.error(f"Failed to transfer memory to MongoDB for phone number {phone_number}: {str(e)}")
 
-async def extract_long_term_memory(short_term_memory: list[str]) -> list[str]:
+async def extract_long_term_memory(short_term_memory: list[str]) -> str | bool:
     """
     Extracts long-term memory from short-term memory.
     """
     LOGGER.info("Starting long-term memory extraction")
     LOGGER.info(f"Processing {len(short_term_memory)} short-term memory items")
+    mem = " ".join(short_term_memory)
     parser = PydanticOutputParser(pydantic_object=Memory_Structured_Output)
     temp = PromptTemplate(template=MEMORY_PROMPT, partial_variables={"format_instructions": parser.get_format_instructions()} )
-    message = temp.format(session_conversation=short_term_memory)
+    message = temp.format(session_conversation=mem)
     
     try:
         LOGGER.info("Invoking LLM for memory extraction")
         strucuted_llm = LLM.with_structured_output(Memory_Structured_Output)
         response = await strucuted_llm.ainvoke(message)
-        if response:
+        if response.long_term_memory and response.long_term_memory not in {"None", None}:
             LOGGER.info("Successfully extracted long-term memory")
-            return [response.long_term_memory]
+            print(f"The long term memory to be stord is {response.long_term_memory}")
+            return response.long_term_memory
         LOGGER.warning("No content returned from LLM during memory extraction")
         return False
     except Exception as e:
