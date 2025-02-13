@@ -1,7 +1,10 @@
+import os
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 from langgraph.graph import StateGraph, END
 from langchain.prompts import PromptTemplate
 from langchain_core.output_parsers import PydanticOutputParser
-from utils.logger import LOGGER
+from app.Utils.logger import LOGGER
 import time
 import json
 import asyncio
@@ -9,7 +12,7 @@ from typing_extensions import List
 from pydantic import BaseModel
 from langchain_core.runnables.config import RunnableConfig
 from .agent_state import AgentState, ToolExecutionPlan, Output_Structure
-from utils.prompts import MAIN_PROMPT, FINAL_PROMPT
+from app.Utils.prompts import MAIN_PROMPT, FINAL_PROMPT
 
 
 

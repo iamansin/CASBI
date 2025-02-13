@@ -1,4 +1,7 @@
-from utils.logger import LOGGER
+import os
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+from Utils.logger import LOGGER
 from textwrap import dedent
 from langchain_experimental.tools import PythonREPLTool
 
@@ -16,7 +19,6 @@ def future_cost_planner(current_cost: float, years: int, inflation_rate: float) 
     #     current_cost (float): The current price of the item.
     #     years (int): Number of years in the future.
     #     inflation_rate (float): Annual inflation rate in percentage.
-
     # Returns:
     #     float: Future cost of the item.
     

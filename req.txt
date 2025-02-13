@@ -1,16 +1,21 @@
-fastapi
-aiohttp
-asyncio
 python-dotenv
+fastapi
 requests
+aiohttp
 aiofiles
+asyncio
 langgraph
 langchain
 langchain-groq
+langchain_huggingface
+langchain_experimental
 groq
-huggingface_hub
 transformers
+sentence-transformers
 redis
 motor 
 pymongo
-langchain_experimental
+faiss-cpu
+faiss-gpu
+torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124 
+pandas
