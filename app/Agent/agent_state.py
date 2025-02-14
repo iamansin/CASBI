@@ -9,9 +9,11 @@ class AgentState(TypedDict):
     primary_objective : List[str]
     execution_sequence : List[List[str]]
     user_long_term_memory : str
-    user_short_term_memory : str
+    user_short_term_memory : str   
     final_response : str
     tool_redirect : bool
+    tool_query : str
+    tool_result : List[List]
 
 
 
@@ -57,12 +59,10 @@ class ToolExecutionPlan(BaseModel):
                 },
                 {
                 "understanding": "User is looking for a new life insurance policy.",
-                "selected_tools": {
-                    "Policy-Recommendation": "step_1",  # Recommend life insurance policies
-                    "F-AND-Q": "step_2",  # Answer questions about policy options
-                    "Human-Interupt": "step_3",  # For complex questions or customization
-                    "Final-Node": "step_4"  # End conversation
-                },
+                "selected_tools": {"step_1": ["Policy-Recommendation" , "F-AND_Q"] ,
+                                    "step_2" : ["Human-Interupt"],
+                                    "step_3": [ "Final_node"]
+                 } ,
                 "primary_objective": "Guide the user through life insurance options and connect them with a human agent if needed.",
                 "execution_sequence": [
                     "1. Recommend suitable life insurance policies based on user needs.",
@@ -160,4 +160,6 @@ class Output_Structure(BaseModel):
 class Memory_Structured_Output(BaseModel):
     long_term_memory : str | None = Field(description="This field contains the long term memory that has been extracted from the session converstation.")
     
-    
+class Calculator_Tool_Structure(BaseModel):
+    function : str = Field(description="This is the function that has to be called.")
+    parameters : dict = Field(description="This dict contains the parameters as keys and their values")

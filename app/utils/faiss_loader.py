@@ -1,4 +1,3 @@
-import asyncio
 import torch
 import faiss
 from langchain_huggingface import HuggingFaceEmbeddings
@@ -32,7 +31,8 @@ async def load_embedding_model(name: str):
     return  EMBEDDING_MODEL
 
 
-async def load_faiss_retrievers(policy_faiss_file: str, profile_faiss_file: str, fandq_faiss_file : str ,embeddings = None, use_gpu: bool = False):
+async def load_faiss_retrievers(policy_faiss_file: str, profile_faiss_file: str, fandq_faiss_file : str ,
+                                services_faiss_file : str, embeddings = None, use_gpu: bool = False):
     """
     Loads FAISS indexes into memory (RAM) during startup and caches them.
 
@@ -51,9 +51,11 @@ async def load_faiss_retrievers(policy_faiss_file: str, profile_faiss_file: str,
         embeddings = await load_embedding_model(EMBEDDING_MODEL_NAME)
     
     
-    if "policy" in FAISS_CACHE and "profile" in FAISS_CACHE and "fandq" in FAISS_CACHE:
+    REQUIRED_FAISS_KEYS = {"policy", "profile", "fandq", "Services"}
+
+    if REQUIRED_FAISS_KEYS.issubset(FAISS_CACHE):
         LOGGER.info("FAISS indexes already loaded.")
-        return FAISS_CACHE  # Return cached indexes if already loaded
+        return FAISS_CACHE
 
     LOGGER.info("Loading FAISS indexes...")
 
@@ -66,6 +68,9 @@ async def load_faiss_retrievers(policy_faiss_file: str, profile_faiss_file: str,
     fandq_vector_store = FAISS.load_local(
         fandq_faiss_file, embeddings, allow_dangerous_deserialization=True
     )  # Correct placement of the parameter
+    services_vector_store = FAISS.load_local(
+        services_faiss_file, embeddings, allow_dangerous_deserialization=True
+    )  # Correct placement of the parameter
 
     # Move FAISS index to GPU if enabled
     if use_gpu and torch.cuda.is_available():
@@ -73,15 +78,46 @@ async def load_faiss_retrievers(policy_faiss_file: str, profile_faiss_file: str,
         policy_vector_store.index = faiss.index_cpu_to_gpu(faiss.StandardGpuResources(), 0, policy_vector_store.index)
         profile_vector_store.index = faiss.index_cpu_to_gpu(faiss.StandardGpuResources(), 0, profile_vector_store.index)
         fandq_vector_store.index = faiss.index_cpu_to_gpu(faiss.StandardGpuResources(), 0, fandq_vector_store.index)
+        services_vector_store.index = faiss.index_cpu_to_gpu(faiss.StandardGpuResources(), 0, services_vector_store.index)
     else:
         LOGGER.info("Using FAISS on CPU.")
 
     # Store in global cache
-    FAISS_CACHE["policy"] = policy_vector_store
+    FAISS_CACHE["Policy"] = policy_vector_store
     print(f"The type faiss retriever : {policy_vector_store} ")
-    FAISS_CACHE["profile"] = profile_vector_store
-    FAISS_CACHE["fandq"] = fandq_vector_store
-    return FAISS_CACHE
+    FAISS_CACHE["Profile"] = profile_vector_store
+    FAISS_CACHE["Fandq"] = fandq_vector_store
+    FAISS_CACHE["Services"] = services_vector_store
+    return FAISS_CACHE, embeddings    
 
 
 
+async def RAG_shutdown():
+    """
+    Clears the FAISS cache and deletes the embedding model from memory.
+    Also frees up GPU memory if applicable.
+    """
+    global FAISS_CACHE, EMBEDDING_MODEL
+
+    # Log the shutdown process
+    LOGGER.info("Shutting down and clearing memory...")
+
+    # Clear the FAISS cache
+    if FAISS_CACHE:
+        LOGGER.info("Clearing FAISS cache...")
+        for key in list(FAISS_CACHE.keys()):
+            del FAISS_CACHE[key]
+        FAISS_CACHE.clear()
+
+    # Delete the embedding model
+    if EMBEDDING_MODEL:
+        LOGGER.info("Deleting embedding model...")
+        del EMBEDDING_MODEL
+        EMBEDDING_MODEL = None
+
+    # Free GPU memory if available
+    if torch.cuda.is_available():
+        LOGGER.info("Freeing GPU memory...")
+        torch.cuda.empty_cache()
+
+    LOGGER.info("Shutdown complete!")

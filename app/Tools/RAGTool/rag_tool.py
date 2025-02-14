@@ -16,12 +16,11 @@ class AsyncMultiVectorRetriever():
         """Fetch relevant documents from the vector store."""
         LOGGER.info("Asynchronously getting the response from similarity_search:")
         try:
-            # Run similarity_search in a separate thread (since FAISS is not async)
-            docs = await asyncio.to_thread(self.vector_store.similarity_search, query, k=4)
+            docs = await self.vector_store.asimilarity_search(query, k=4)
             LOGGER.info(f"Retrieved {len(docs)} documents.")  # ✅ Log the result count
             return docs if docs else []
         except Exception as e: 
-            LOGGER.error(f"An error occurred: {e}\n{traceback.format_exc()}")  # ✅ Print full traceback
+            LOGGER.error(f"An error occurred: {e}\n{traceback.format_exc()}")
             return []
 
 async def get_policy_recommendation(query,FAISS_CACHE = FAISS_CACHE):
@@ -34,15 +33,19 @@ async def get_policy_recommendation(query,FAISS_CACHE = FAISS_CACHE):
     Returns:
         list: A combined list of relevant documents from both vector stores.
     """
-    policy_retriever = AsyncMultiVectorRetriever(FAISS_CACHE["policy"])
-    profile_retriever = AsyncMultiVectorRetriever(FAISS_CACHE["profile"])
+    # print("FAISS index dimension:", FAISS_CACHE["Policy"].index.d)
+    # query_vector = embedding_model.embed_query(query)  # Get the embedding
+    # print("Query vector dimension:", len(query_vector))
+    policy_retriever = AsyncMultiVectorRetriever(FAISS_CACHE["Policy"])
+    profile_retriever = AsyncMultiVectorRetriever(FAISS_CACHE["Profile"])
     LOGGER.info("Initialised Policy and Profile RAG")
+    policy_docs = await policy_retriever.get_relevant_documents(query)
     policy_docs, profile_docs = await asyncio.gather(
         policy_retriever.get_relevant_documents(query),
         profile_retriever.get_relevant_documents(query)
     )
     LOGGER.info("Got resutls for Policy and Profile RAG")
-    return (policy_docs, profile_docs ) # Merge results
+    return policy_docs , profile_docs
 
 async def get_fandqs(query, FAISS_CACHE = FAISS_CACHE):
     """
@@ -57,8 +60,32 @@ async def get_fandqs(query, FAISS_CACHE = FAISS_CACHE):
     """
     LOGGER.info("Getting documents from the FAQ RAG...")
     try:
-        fandq_retriever = AsyncMultiVectorRetriever(FAISS_CACHE["fandq"])
+        # print("FAISS index dimension:", FAISS_CACHE["fandq"].index.d)
+        # query_vector = embedding_model.embed_query(query)  # Get the embedding
+        # print("Query vector dimension:", len(query_vector))
+        fandq_retriever = AsyncMultiVectorRetriever(FAISS_CACHE["Fandq"])
         LOGGER.info("Initalised fandq RAG.")
     except Exception as e:
         LOGGER.error(f"There was some while loading the FAQ RAG. : {e}")
     return await fandq_retriever.get_relevant_documents(query)
+
+async def get_services(query, FAISS_CACHE = FAISS_CACHE):
+    """
+    Fetch Services asynchronously based on the query.
+
+    Args:
+        query (str): The search query.
+
+    Returns:
+        list: A list of relevant Service documents.
+        
+    """
+    LOGGER.info("Initialising Serveices retriever..")
+    try:
+        services_retriever = AsyncMultiVectorRetriever(FAISS_CACHE["Services"])
+        LOGGER.info("Initialised Services RAG")
+    except Exception as e:
+        LOGGER.error(f"There was some while loading the Services RAG. : {e}")
+    
+    return await services_retriever.get_relevant_documents(query)
+    

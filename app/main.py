@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from webhook import router as webhook_router
 import uvicorn
 from Utils.connection_testing import DatabaseConnectionTester
-from Utils.faiss_loader import load_faiss_retrievers, load_embedding_model # Import FAISS loader
+from Utils.faiss_loader import load_faiss_retrievers
 from Utils.logger import LOGGER
 import sys
 from contextlib import asynccontextmanager
@@ -24,12 +24,10 @@ async def lifespan(app: FastAPI):
             sys.exit(1)
 
         # Load FAISS indexes once during startup
-        embeddings = await load_embedding_model()
         await load_faiss_retrievers(
             policy_faiss_file="./app/faiss_indexes/policy_faiss_index",
             profile_faiss_file="./app/faiss_indexes/profile_faiss_index",
             fandq_faiss_file="./app/faiss_indexes/fandq_faiss_index",
-            embeddings=embeddings,
             use_gpu=True  # Set False for CPU
         )
         LOGGER.info("***** FAISS indexes loaded successfully *****")

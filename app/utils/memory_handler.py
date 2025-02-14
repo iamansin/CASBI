@@ -9,14 +9,9 @@ from datetime import datetime, timedelta
 from langchain.output_parsers import PydanticOutputParser
 from langchain_groq import ChatGroq
 from Agent.agent_state import Memory_Structured_Output
-from .config import GROQ_API_KEY
+from .config import GROQ_API_KEY, MONGO_CLIENT, REDIS_HOST, REDIS_PORT, MONGO_COLLECTION, MONGO_DB
 
 LLM = ChatGroq(api_key = GROQ_API_KEY, model="llama-3.3-70b-versatile", temperature=0.0)
-
-# Redis & MongoDB Connection
-REDIS_URL = "redis://localhost:6379"
-MONGO_URL = "mongodb://127.0.0.1:27017"
-
 
 class RedisClient:
     _instance = None
@@ -24,13 +19,13 @@ class RedisClient:
     @classmethod
     def get_client(cls):
         if cls._instance is None:
-            cls._instance = aioredis.Redis(host="localhost", port=6379, decode_responses=True)
+            cls._instance = aioredis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
         return cls._instance
 
 redis_client = RedisClient.get_client()
-mongo_client = AsyncIOMotorClient(MONGO_URL)
-db = mongo_client["memory_store"]
-collection = db["user_memory"]
+mongo_client = AsyncIOMotorClient(MONGO_CLIENT)
+db = mongo_client[MONGO_DB]
+collection = db[MONGO_COLLECTION]
 
 # Expiry time for Redis cache (10 minutes)
 REDIS_EXPIRY = 10  # 10 minutes

@@ -2,8 +2,8 @@ from fastapi import APIRouter, Request, HTTPException
 import json
 import time 
 from Utils.config import VERIFY_TOKEN,PHONE_NUMBER_ID, GROQ_API_KEY
-from Utils.message_handler import send_whatsapp_message, download_media
-from Utils.input_processor import process_audio_input, process_image_input
+from Utils.message_handler import send_whatsapp_message
+from Utils.input_processor import download_and_process
 from Utils.memory_handler import retrieve_memory, store_memory
 from Utils.logger import LOGGER
 from Agent.whatsapp_agent import Whatsapp_Agent
@@ -64,20 +64,17 @@ async def receive_message(request: Request):
                     LOGGER.info(f"Received text from {sender_id}: {agent_input}")
 
                 elif msg_type == "image":
-                    image_id = message.get("image", {}).get("id", "")
-                    LOGGER.info(f"Received image from {sender_id}, Image ID: {image_id}")
-                    file_path = await download_media(image_id)
-                    agent_input = await process_image_input(file_path)
-                    
+                    media_id = message.get("image", {}).get("id", "")
+                    LOGGER.info(f"Received image from {sender_id}, Image ID: {media_id}")
+
 
                 elif msg_type == "audio":
-                    audio_id = message.get("audio", {}).get("id", "")
-                    LOGGER.info(f"Received voice note from {sender_id}, Audio ID: {audio_id}")
-                    file_path = await download_media(audio_id)
-                    agent_input = await process_audio_input(file_path) 
+                    media_id = message.get("audio", {}).get("id", "")
+                    LOGGER.info(f"Received voice note from {sender_id}, Audio ID: {media_id}")
+                    
+                agent_input = await download_and_process(media_id) 
                 
                 message = None
-                
                 if agent_input:
                     # Retrieve user's long-term memory
                     try:

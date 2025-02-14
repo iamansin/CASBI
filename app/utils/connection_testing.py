@@ -2,14 +2,15 @@ import logging
 from motor.motor_asyncio import AsyncIOMotorClient
 import redis.asyncio as aioredis
 from datetime import datetime
+from .config import REDIS_CLIENT, MONGO_CLIENT
 
 # Setup logging
 LOGGER = logging.getLogger(__name__)
 
 class DatabaseConnectionTester:
     def __init__(self):
-        self.redis_url = "redis://localhost:6379"
-        self.mongo_url = "mongodb://127.0.0.1:27017"
+        self.redis_url = REDIS_CLIENT
+        self.mongo_url = MONGO_CLIENT
         self.test_data = {
             "test_id": "connection_test",
             "timestamp": datetime.utcnow().isoformat(),

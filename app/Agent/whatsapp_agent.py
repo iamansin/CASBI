@@ -10,13 +10,14 @@ import json
 import asyncio
 from typing_extensions import List 
 from pydantic import BaseModel
-from langchain_core.runnables.config import RunnableConfig
-from .agent_state import AgentState, ToolExecutionPlan, Output_Structure
-from app.Utils.prompts import MAIN_PROMPT, FINAL_PROMPT
-
+from .agent_state import AgentState, ToolExecutionPlan, Output_Structure, Calculator_Tool_Structure
+from app.Utils.prompts import MAIN_PROMPT, FINAL_PROMPT, TOOL_PROMPT
+from app.Tools.RAGTool.rag_tool import get_fandqs, get_policy_recommendation, get_services
+from app.Tools.REPLTool.repl_tool import Run_Python_Script
 
 
 class Whatsapp_Agent:
+    
     def __init__(self, llm_dict: dict, tool_list : List | None = None):
         self._llm_dict = llm_dict
         self._tool_dict = {tool.name: tool for tool in tool_list} if tool_list is not None else {},
@@ -26,8 +27,22 @@ class Whatsapp_Agent:
         graph_builder = StateGraph(AgentState)
         graph_builder.add_node("Main_node",self.Main_node)
         graph_builder.add_node("Final_node",self.Final_node)
+        graph_builder.add_node("Service_node",self.Services_tool_node)
+        graph_builder.add_node("FAQ_node",self.FAQ_tool_node)
+        graph_builder.add_node("Calculator_node",self.Calculator_tool_node)
+        graph_builder.add_node("Recommendation_node",self.Recommendation_tool_node)
         graph_builder.set_entry_point("Main_node")
-        graph_builder.add_edge("Main_node" , "Final_node")
+        graph_builder.add_conditional_edges("Main_node", self.main_node_router ,{
+            "service_tool": "Service_node",
+            "fandq_tool": "FAQ_node",
+            "recommendation_tool": "Recommendation_node",
+            "calculator_tool": "Calculator_node",
+            "final_tool": "Final_node",
+        })
+        graph_builder.add_edge("FAQ_node","Main_node")
+        graph_builder.add_edge("Recommendation_node","Main_node")
+        graph_builder.add_edge("Service_node","Main_node")
+        graph_builder.add_edge("Calculator_node","Main_node")
         graph_builder.add_edge("Final_node",END)
         graph = graph_builder.compile() 
         return graph 
@@ -49,7 +64,6 @@ class Whatsapp_Agent:
             try:
                 LOGGER.info(f"Attempt {attempt}: Invoking LLM")
                 structured_response = await llm_structured.ainvoke(message)
-                # LOGGER.warning(f"The response recieved from LLM in structured format ---> {structured_response}")
                 if structured_response:
                     # print(f"Time taken to get the structured response is {time.time()-start_time}")
                     return structured_response
@@ -113,7 +127,62 @@ class Whatsapp_Agent:
     
     async def main_node_router(self,state : AgentState):
         selected_tool_dict = state["selected_tools"][-1]
+            # Ensure we only pick tools from step_1
+        tools_to_run = selected_tool_dict.get("step_1", [])
+
+        LOGGER.info(f"Routing to tools from step_1: {tools_to_run}")
+
+        return tools_to_run if tools_to_run else "final_tool"
         
         
-    async def tool_recommendation(self,state:AgentState):
-        pass
+    async def Recommendation_tool_node(self,state:AgentState):
+        tool_query = state["tool_query"]
+        try:
+            resutls  = await get_policy_recommendation(tool_query)
+            LOGGER.info("Successfully got result from the Recommendation tool")
+        except Exception as e:
+            LOGGER.error(f"There was some error while getting response from the tool  : {e}")
+            resutls = ["Not able to get the results right now"]
+        state.setdefault("tool_result", []).append(resutls)
+        return state
+    
+    async def FAQ_tool_node(self,state:AgentState):
+        tool_query = state["tool_query"]
+        try:
+            resutls  = await get_fandqs(tool_query)
+            LOGGER.info("Successfully got result from the FAQs tool")
+        except Exception as e:
+            LOGGER.error(f"There was some error while getting response from the tool  : {e}")
+            resutls = ["Not able to get the results right now"]
+        state.setdefault("tool_result", []).append(resutls)
+        return state
+    
+    async def Services_tool_node(self,state:AgentState):
+        tool_query = state["tool_query"]
+        try:
+            resutls  = await get_policy_recommendation(tool_query)
+            LOGGER.info("Successfully got result from the Services tool")
+        except Exception as e:
+            LOGGER.error(f"There was some error while getting response from the tool  : {e}")
+            resutls = ["Not able to get the results right now"]
+        state.setdefault("tool_result", []).append(resutls)
+        return state
+    
+    async def Calculator_tool_node(self,state:AgentState):
+        parser = PydanticOutputParser(pydantic_object=Calculator_Tool_Structure)
+        template = PromptTemplate(
+                                    template=CALCULATOR_PROMPT,
+                                    partial_variables={"format_instructions": parser.get_format_instructions()},
+                                )
+        llm_message = template.format(tool_query = state["tool_query"], user_memory = state["user_long_term_memory"], session_memory = state["user_short_term_memory"] )
+        response = await self.get_structured_response(llm_message,Output_Structure)
+        
+        function = response.get("function",None)
+        arguments = response.get("parameters", None)
+        need_more_info = response.get("more_info", True)
+        
+        if need_more_info:
+            pass
+        
+        result = await Run_Python_Script(function=function, args_dict=arguments)
+        state.setdefault(["tool_result"],[]).append([result])
