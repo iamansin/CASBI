@@ -76,11 +76,11 @@ def time_to_double_money(amount: float, interest_rate: float) -> Union[str, tupl
     #     or an error message if the interest rate is invalid.
 
     if interest_rate <= 0:
-        return "Interest rate must be greater than 0"
+        print("Interest rate must be greater than 0")
 
     years = int(72 / interest_rate)  # Rule of 72 formula
     remaining_months = round((72 / interest_rate - years) * 12)  # Get remaining months
-    print(years, remaining_months)
+    print(f"{years} years and {remaining_months} months")
 """)
 
 async def exe_function(function:str)-> str:

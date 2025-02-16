@@ -68,9 +68,9 @@ async def load_faiss_retrievers(policy_faiss_file: str, profile_faiss_file: str,
     fandq_vector_store = FAISS.load_local(
         fandq_faiss_file, embeddings, allow_dangerous_deserialization=True
     )  # Correct placement of the parameter
-    services_vector_store = FAISS.load_local(
-        services_faiss_file, embeddings, allow_dangerous_deserialization=True
-    )  # Correct placement of the parameter
+    # services_vector_store = FAISS.load_local(
+    #     services_faiss_file, embeddings, allow_dangerous_deserialization=True
+    # )  # Correct placement of the parameter
 
     # Move FAISS index to GPU if enabled
     if use_gpu and torch.cuda.is_available():
@@ -78,7 +78,7 @@ async def load_faiss_retrievers(policy_faiss_file: str, profile_faiss_file: str,
         policy_vector_store.index = faiss.index_cpu_to_gpu(faiss.StandardGpuResources(), 0, policy_vector_store.index)
         profile_vector_store.index = faiss.index_cpu_to_gpu(faiss.StandardGpuResources(), 0, profile_vector_store.index)
         fandq_vector_store.index = faiss.index_cpu_to_gpu(faiss.StandardGpuResources(), 0, fandq_vector_store.index)
-        services_vector_store.index = faiss.index_cpu_to_gpu(faiss.StandardGpuResources(), 0, services_vector_store.index)
+        # services_vector_store.index = faiss.index_cpu_to_gpu(faiss.StandardGpuResources(), 0, services_vector_store.index)
     else:
         LOGGER.info("Using FAISS on CPU.")
 
@@ -87,7 +87,7 @@ async def load_faiss_retrievers(policy_faiss_file: str, profile_faiss_file: str,
     print(f"The type faiss retriever : {policy_vector_store} ")
     FAISS_CACHE["Profile"] = profile_vector_store
     FAISS_CACHE["Fandq"] = fandq_vector_store
-    FAISS_CACHE["Services"] = services_vector_store
+    # FAISS_CACHE["Services"] = services_vector_store
     return FAISS_CACHE, embeddings    
 
 

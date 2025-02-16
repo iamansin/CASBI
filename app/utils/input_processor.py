@@ -1,18 +1,76 @@
 from groq import Groq
-from .config import GROQ_API_KEY, HF_TOKEN
-from .prompts import IMAGE_PROMPT
+import aiofiles
+import os
+import httpx
+import tempfile
+from .config import GROQ_API_KEY
 from .logger import LOGGER
-from huggingface_hub import InferenceClient
 import aiofiles
 import base64
 from pathlib import Path
 import time 
+from .config import ACCESS_TOKEN
 
-Audio_Client = Groq(api_key=GROQ_API_KEY)
-Image_Client = InferenceClient(
-	provider="hf-inference",
-	api_key=HF_TOKEN)
+HEADERS = {
+    "Authorization": f"Bearer {ACCESS_TOKEN}",
+    "Content-Type": "application/json"
+}
+Groq_Client = Groq(api_key=GROQ_API_KEY)
 
+async def download_and_process(media_id: str, media_type: str):
+    """
+    Downloads media (image/audio) from WhatsApp servers using the media ID and saves it locally.
+    """
+    # Step 1: Get the direct media URL
+    url = f"https://graph.facebook.com/v18.0/{media_id}"
+    
+    async with httpx.AsyncClient() as client:
+        response = await client.get(url, headers=HEADERS)
+        
+        if response.status_code != 200:
+            LOGGER.error(f"Failed to fetch media URL: {response.status_code}")
+            return None
+
+        media_data = response.json()
+        media_url = media_data.get("url")
+
+    if not media_url:
+        LOGGER.error("Media URL not found.")
+        return None
+
+    LOGGER.info(f"Downloading media from: {media_url}")
+
+    # Step 2: Download the media file
+    async with httpx.AsyncClient() as client:
+        response = await client.get(media_url, headers=HEADERS)
+
+        if response.status_code != 200:
+            LOGGER.error(f"Failed to download media: {response.status_code}")
+            return None
+
+        # Determine file extension
+        content_type = response.headers.get("Content-Type", "")
+        file_extension = content_type.split("/")[-1]  # Extract file format (e.g., jpg, png, mp3)
+        
+        try :
+            LOGGER.info("Creating new temp file for the media..")
+            with tempfile.TemporaryDirectory() as temp_dir:
+                temp_file_path = os.path.join(temp_dir, f"{media_id}.{file_extension}")
+
+                async with aiofiles.open(temp_file_path, "wb") as f:
+                    async for chunk in response.aiter_bytes():
+                        await f.write(chunk)
+
+                if media_type == "image":
+                    text = await process_image_input(temp_file_path)
+                else:
+                    text = await process_audio_input(temp_file_path)
+                
+        except Exception as e:
+            LOGGER.error(f"Error processing media file: {e}")
+            text = None
+    LOGGER.info(f"Processed text: {text}")
+    return text
 
 async def process_audio_input(audio_file_path : str):
     """This Function will take audio file as an input,
@@ -24,7 +82,7 @@ async def process_audio_input(audio_file_path : str):
  
     try:
         with open(audio_file_path, "rb") as audio_file:
-            transcription_result = Audio_Client.audio.transcriptions.create(
+            transcription_result = Groq_Client.audio.transcriptions.create(
                 file=(audio_file_path, audio_file),
                 model="whisper-large-v3",
                 language="en"
@@ -36,7 +94,7 @@ async def process_audio_input(audio_file_path : str):
     
     except Exception as e:
         LOGGER.error(f"Error processing audio file: {e}")
-        return "Error processing audio file. Please try again."
+        return None
 
 async def process_image_input(image_file_path : str):
     """This function will take image as input and process it,
@@ -56,37 +114,40 @@ async def process_image_input(image_file_path : str):
             '.png': 'image/png',
             '.webp': 'image/webp'
         }.get(extension, 'image/jpeg')
-
-    messages = [
-        {
-            "role": "user",
-            "content": [
-                {
-                    "type": "text",
-                    "text": IMAGE_PROMPT,
-                    
-                },
-                {
-                    "type": "image_url",
-                    "image_url": {
-                        "url": f"data:{mime_type};base64,{encoded_image}",
-                    }
-                }
-            ]
-        }
-    ]
+    
     LOGGER.info("Sending request to the model")
     response_time = time.time()
     try:
-        completion = Image_Client.chat.completions.create(
-            model="meta-llama/Llama-3.2-11B-Vision-Instruct", 
-            messages=messages, 
-            max_tokens=500
-        )
+        completion = Groq_Client.chat.completions.create(
+        model="llama-3.2-11b-vision-preview",
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": "You Are and Whatsapp AI Assistant. Your task is to understand the content of the image and provide a brief description of it. You must understand and provide you thoughts for the same."
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:{mime_type};base64,{encoded_image}"
+                        }
+                    }
+                ]
+            }
+                ],
+                temperature=1,
+                max_completion_tokens=1024,
+                top_p=1,
+                stream=False,
+            )
+
+    
         LOGGER.info(f"Time taken to process the image:{time.time() - start_time}, Model response time : {time.time()- response_time}")
-        return completion.choices[0].message.content
+        return completion.choices[0].message
 
     except Exception as e:
         LOGGER.error(f"Error processing image file: {e}")
-        return "Error processing image file. Please try again."
+        return None
 
