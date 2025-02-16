@@ -11,7 +11,7 @@ import asyncio
 from typing_extensions import List 
 from pydantic import BaseModel
 from .agent_state import AgentState, ToolExecutionPlan, Output_Structure, Calculator_Tool_Structure
-from app.Utils.prompts import MAIN_PROMPT, FINAL_PROMPT, TOOL_PROMPT
+from app.Utils.prompts import MAIN_PROMPT, FINAL_PROMPT, CALCULATOR_PROMPT
 from app.Tools.RAGTool.rag_tool import get_fandqs, get_policy_recommendation, get_services
 from app.Tools.REPLTool.repl_tool import Run_Python_Script
 
@@ -42,7 +42,7 @@ class Whatsapp_Agent:
         graph_builder.add_edge("FAQ_node","Main_node")
         graph_builder.add_edge("Recommendation_node","Main_node")
         graph_builder.add_edge("Service_node","Main_node")
-        graph_builder.add_edge("Calculator_node","Main_node")
+        graph_builder.add_edge("Calculator_node","Final_node")
         graph_builder.add_edge("Final_node",END)
         graph = graph_builder.compile() 
         return graph 
@@ -109,6 +109,9 @@ class Whatsapp_Agent:
         return state
     
     async def Final_node(self, state:AgentState):
+        if state["tool_redirect"]:
+            state["final_response"] = "this is the final node"
+            return state
         message = state["message"].content
         long_term_memory = state["user_long_term_memory"]
         session_memory = state.get("user_short_term_memory", " ")
@@ -160,7 +163,7 @@ class Whatsapp_Agent:
     async def Services_tool_node(self,state:AgentState):
         tool_query = state["tool_query"]
         try:
-            resutls  = await get_policy_recommendation(tool_query)
+            resutls  = await get_services(tool_query)
             LOGGER.info("Successfully got result from the Services tool")
         except Exception as e:
             LOGGER.error(f"There was some error while getting response from the tool  : {e}")
@@ -174,15 +177,27 @@ class Whatsapp_Agent:
                                     template=CALCULATOR_PROMPT,
                                     partial_variables={"format_instructions": parser.get_format_instructions()},
                                 )
-        llm_message = template.format(tool_query = state["tool_query"], user_memory = state["user_long_term_memory"], session_memory = state["user_short_term_memory"] )
-        response = await self.get_structured_response(llm_message,Output_Structure)
+        print(state["user_long_term_memory"],state["user_short_term_memory"])
+        llm_message = template.format(user_message = state["message"].content, user_memory = state["user_long_term_memory"], session_memory = state["user_short_term_memory"] )
+        response = await self.get_structured_response(llm_message,Calculator_Tool_Structure)
         
-        function = response.get("function",None)
-        arguments = response.get("parameters", None)
-        need_more_info = response.get("more_info", True)
-        
+        function = response.function
+        arguments = response.parameters
+        need_more_info = response.need_more_info
+        LOGGER.info(f"Function : {function} and arguments : {arguments}")
+        state["tool_redirect"] = True
         if need_more_info:
-            pass
+            LOGGER.info("Need more information to run the function")
+            need_parameters = response.need_parameters
+            LOGGER.info(f"Need more information about the parameters {need_parameters}")
+            state.setdefault("need_parameters",[]).extend(need_parameters)
+            state.setdefault("function_status",[]).append({"function" : function, "parameters": arguments})
+            state.setdefault("redirect_to",None) == "final_node"
+            return state
         
+        LOGGER.info("having all the information to run the function")
         result = await Run_Python_Script(function=function, args_dict=arguments)
-        state.setdefault(["tool_result"],[]).append([result])
+        state.setdefault("tool_result",[]).append([result])
+        state.setdefault("parameters_used",[]).append({"function" : function, "parameters": arguments})
+        state.setdefault("redirect_to",None) == "final_node"
+        return state
