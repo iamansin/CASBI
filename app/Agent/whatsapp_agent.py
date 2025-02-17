@@ -18,32 +18,28 @@ from app.Tools.REPLTool.repl_tool import Run_Python_Script
 
 class Whatsapp_Agent:
     
-    def __init__(self, llm_dict: dict, tool_list : List | None = None):
+    def __init__(self, llm_dict: dict):
         self._llm_dict = llm_dict
-        self._tool_dict = {tool.name: tool for tool in tool_list} if tool_list is not None else {},
+        self._tool_map = {
+            "Recommendation_tool": self.Recommendation_tool,
+            "FAQ_tool": self.FAQ_tool,
+            "Services_tool": self.Services_tool,
+            "Calculator_tool": self.Calculator_tool
+        }
         self.graph = self.compile_graph()
         
     def compile_graph(self):
         graph_builder = StateGraph(AgentState)
-        graph_builder.add_node("Main_node",self.Main_node)
-        graph_builder.add_node("Final_node",self.Final_node)
-        graph_builder.add_node("Service_node",self.Services_tool_node)
-        graph_builder.add_node("FAQ_node",self.FAQ_tool_node)
-        graph_builder.add_node("Calculator_node",self.Calculator_tool_node)
-        graph_builder.add_node("Recommendation_node",self.Recommendation_tool_node)
-        graph_builder.set_entry_point("Main_node")
-        graph_builder.add_conditional_edges("Main_node", self.main_node_router ,{
-            "service_tool": "Service_node",
-            "fandq_tool": "FAQ_node",
-            "recommendation_tool": "Recommendation_node",
-            "calculator_tool": "Calculator_node",
-            "final_tool": "Final_node",
+        graph_builder.add_node("Thinker_node",self.Thinker_node)
+        graph_builder.add_node("Validation_node",self.Validation_node)
+        graph_builder.add_node("ToolManager_node",self.ToolManager_node)
+        graph_builder.set_entry_point("Thinker_node")
+        graph_builder.add_edge("Thinker_node","ToolManager_node")
+        graph_builder.add_edge("ToolManager_node","Validation_node")
+        graph_builder.add_conditional_edges("Validation_node", self.Router ,{
+            "think_more": "Thinker_node",
+            "end": END,
         })
-        graph_builder.add_edge("FAQ_node","Main_node")
-        graph_builder.add_edge("Recommendation_node","Main_node")
-        graph_builder.add_edge("Service_node","Main_node")
-        graph_builder.add_edge("Calculator_node","Final_node")
-        graph_builder.add_edge("Final_node",END)
         graph = graph_builder.compile() 
         return graph 
     
@@ -56,7 +52,6 @@ class Whatsapp_Agent:
         Raises:
             RuntimeError: If all retry attempts fail.
         """
-
         # start_time = time.time()
         llm_structured = self._llm_dict["Groq"].with_structured_output(output_structure)
         
@@ -76,8 +71,7 @@ class Whatsapp_Agent:
         
         raise RuntimeError("Failed to get a structured response from the LLM after 3 attempts.")
     
-    
-    async def Main_node(self, state :AgentState):
+    async def Thinker_node(self, state :AgentState):
         """This is the main entry node for the 
         Args:
             state (AgentState) : This the state that has to be passed on 
@@ -101,17 +95,68 @@ class Whatsapp_Agent:
         LOGGER.info("Recieved response from the model.")
         #Getting response from the LLM
         response = await self.get_structured_response(llm_message,ToolExecutionPlan)
-        state.setdefault("understanding", []).append(response.understanding)
         state.setdefault("selected_tools", []).append(response.selected_tools)
         state.setdefault("primary_objective", []).append(response.primary_objective)
-        state.setdefault("execution_sequence", []).append(response.execution_sequence)
         LOGGER.info("STATE updated now forwarding to next node")
         return state
     
-    async def Final_node(self, state:AgentState):
+    async def execute_tools(self, state :AgentState, tool :str, tool_query :str) -> dict:
+        """
+        Executes the selected tool based on the tool name and query.
+
+        Args:
+            state: The current AgentState.
+            tool: The name of the tool to execute (string).
+            tool_query: The query or input for the tool (string).
+
+        Returns:
+            A dictionary containing the results from the tool execution,
+            or an error dictionary if the tool is not found.
+        """
+        tool_function = self._tool_map.get(tool)
+
+        if tool_function:
+            print(f"Executing tool: {tool} with query: {tool_query}")
+            try:
+                # **Invoke the tool function, passing state and tool_query**
+                tool_result = await tool_function(state, tool_query) # Correctly invoke the async function
+                tool_result["tool_name"] = tool # Ensure tool_name is in the result (if not already)
+                return tool_result
+            except Exception as e:
+                LOGGER.error(f"Error executing tool '{tool}': {e}")
+                return {"tool_name": tool, "error": e} # Return error info
+        else:
+            error_message = f"Tool '{tool}' not found in tool dictionary."
+            print(error_message)
+            return {"tool_name": tool, "error": error_message} # Return error info
+
+    async def ToolManager_node(self, state:AgentState):
+        selected_tool_list = state["selected_tools"][-1]
+        tool_query = state["message"].content
+        
+        print(f"ToolManager_node: Selected tools: {selected_tool_list}, Query: {tool_query}")
+
+        tool_tasks = [self.execute_tools(state, tool, tool_query) for tool in selected_tool_list]
+
+        # Use asyncio.gather to run tool executions concurrently 
+        tool_results_list = await asyncio.gather(*tool_tasks)
+
+        tools_result_dict = {}
+        for result in tool_results_list:
+            tool_name = result.get("tool_name") # Assuming execute_tools returns dict with "tool_name"
+            if tool_name: 
+                tools_result_dict[tool_name] = result
+
+        # Update the state with the aggregated tool results
+        updated_state = state.update(tools_result=tools_result_dict) # Use state.update for cleaner updates
+        print(f"ToolManager_node: Updated state with tool results: {tools_result_dict}")
+        return updated_state
+    
+    async def Validation_node(self, state:AgentState):
         if state["tool_redirect"]:
             state["final_response"] = "this is the final node"
             return state
+        
         message = state["message"].content
         long_term_memory = state["user_long_term_memory"]
         session_memory = state.get("user_short_term_memory", " ")
@@ -128,18 +173,17 @@ class Whatsapp_Agent:
         state["final_response"] = response.response
         return state
     
-    async def main_node_router(self,state : AgentState):
-        selected_tool_dict = state["selected_tools"][-1]
-            # Ensure we only pick tools from step_1
-        tools_to_run = selected_tool_dict.get("step_1", [])
+    # async def Router(self,state : AgentState):
+    #     selected_tool_dict = state["selected_tools"][-1]
+    #         # Ensure we only pick tools from step_1
+    #     tools_to_run = selected_tool_dict.get("step_1", [])
 
-        LOGGER.info(f"Routing to tools from step_1: {tools_to_run}")
+    #     LOGGER.info(f"Routing to tools from step_1: {tools_to_run}")
 
-        return tools_to_run if tools_to_run else "final_tool"
+    #     return tools_to_run if tools_to_run else "final_tool"
         
         
-    async def Recommendation_tool_node(self,state:AgentState):
-        tool_query = state["tool_query"]
+    async def Recommendation_tool(self,state:AgentState, tool_query:str):
         try:
             resutls  = await get_policy_recommendation(tool_query)
             LOGGER.info("Successfully got result from the Recommendation tool")
@@ -149,8 +193,7 @@ class Whatsapp_Agent:
         state.setdefault("tool_result", []).append(resutls)
         return state
     
-    async def FAQ_tool_node(self,state:AgentState):
-        tool_query = state["tool_query"]
+    async def FAQ_tool(self,state:AgentState, tool_query:str):
         try:
             resutls  = await get_fandqs(tool_query)
             LOGGER.info("Successfully got result from the FAQs tool")
@@ -160,44 +203,44 @@ class Whatsapp_Agent:
         state.setdefault("tool_result", []).append(resutls)
         return state
     
-    async def Services_tool_node(self,state:AgentState):
-        tool_query = state["tool_query"]
+    async def Services_tool(self,state:AgentState, tool_query:str):
         try:
             resutls  = await get_services(tool_query)
+            formatted_result = []
+            for doc in resutls:
+                formatted_result.append(f"service : {doc.content} , solution : {doc.metadata['solution']}")
+                
             LOGGER.info("Successfully got result from the Services tool")
         except Exception as e:
             LOGGER.error(f"There was some error while getting response from the tool  : {e}")
             resutls = ["Not able to get the results right now"]
-        state.setdefault("tool_result", []).append(resutls)
+        state.setdefault("tool_result", []).append(formatted_result)
         return state
     
-    async def Calculator_tool_node(self,state:AgentState):
+    async def Calculator_tool(self,state:AgentState, tool_query:str):
+        result = {}
         parser = PydanticOutputParser(pydantic_object=Calculator_Tool_Structure)
         template = PromptTemplate(
                                     template=CALCULATOR_PROMPT,
                                     partial_variables={"format_instructions": parser.get_format_instructions()},
                                 )
-        print(state["user_long_term_memory"],state["user_short_term_memory"])
-        llm_message = template.format(user_message = state["message"].content, user_memory = state["user_long_term_memory"], session_memory = state["user_short_term_memory"] )
+        llm_message = template.format(user_message = tool_query, user_memory = state["user_long_term_memory"], session_memory = state["user_short_term_memory"] )
         response = await self.get_structured_response(llm_message,Calculator_Tool_Structure)
         
         function = response.function
         arguments = response.parameters
         need_more_info = response.need_more_info
         LOGGER.info(f"Function : {function} and arguments : {arguments}")
-        state["tool_redirect"] = True
         if need_more_info:
             LOGGER.info("Need more information to run the function")
             need_parameters = response.need_parameters
             LOGGER.info(f"Need more information about the parameters {need_parameters}")
-            state.setdefault("need_parameters",[]).extend(need_parameters)
-            state.setdefault("function_status",[]).append({"function" : function, "parameters": arguments})
-            state.setdefault("redirect_to",None) == "final_node"
-            return state
+            result["need_parameters"] = need_parameters
+            result["function_status"] = {"function" : function, "parameters": arguments}
+            return result
         
         LOGGER.info("having all the information to run the function")
-        result = await Run_Python_Script(function=function, args_dict=arguments)
-        state.setdefault("tool_result",[]).append([result])
-        state.setdefault("parameters_used",[]).append({"function" : function, "parameters": arguments})
-        state.setdefault("redirect_to",None) == "final_node"
-        return state
+        val = await Run_Python_Script(function=function, args_dict=arguments)
+        result["value"] = val
+        result["parameter_used"] = {"function" : function, "parameters": arguments}
+        return result

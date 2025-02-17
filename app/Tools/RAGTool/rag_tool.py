@@ -23,6 +23,7 @@ class AsyncMultiVectorRetriever():
             LOGGER.error(f"An error occurred: {e}\n{traceback.format_exc()}")
             return []
 
+
 async def get_policy_recommendation(query,FAISS_CACHE = FAISS_CACHE):
     """
     Fetch policy and profile recommendations asynchronously.
@@ -33,9 +34,7 @@ async def get_policy_recommendation(query,FAISS_CACHE = FAISS_CACHE):
     Returns:
         list: A combined list of relevant documents from both vector stores.
     """
-    # print("FAISS index dimension:", FAISS_CACHE["Policy"].index.d)
-    # query_vector = embedding_model.embed_query(query)  # Get the embedding
-    # print("Query vector dimension:", len(query_vector))
+
     policy_retriever = AsyncMultiVectorRetriever(FAISS_CACHE["Policy"])
     profile_retriever = AsyncMultiVectorRetriever(FAISS_CACHE["Profile"])
     LOGGER.info("Initialised Policy and Profile RAG")
@@ -47,7 +46,7 @@ async def get_policy_recommendation(query,FAISS_CACHE = FAISS_CACHE):
     LOGGER.info("Got resutls for Policy and Profile RAG")
     return policy_docs , profile_docs
 
-async def get_fandqs(query, FAISS_CACHE = FAISS_CACHE):
+async def get_fandqs(query,FAISS_CACHE = FAISS_CACHE):
     """
     Fetch FAQs asynchronously based on the query.
 
@@ -60,9 +59,7 @@ async def get_fandqs(query, FAISS_CACHE = FAISS_CACHE):
     """
     LOGGER.info("Getting documents from the FAQ RAG...")
     try:
-        # print("FAISS index dimension:", FAISS_CACHE["fandq"].index.d)
-        # query_vector = embedding_model.embed_query(query)  # Get the embedding
-        # print("Query vector dimension:", len(query_vector))
+
         fandq_retriever = AsyncMultiVectorRetriever(FAISS_CACHE["Fandq"])
         LOGGER.info("Initalised fandq RAG.")
     except Exception as e:
