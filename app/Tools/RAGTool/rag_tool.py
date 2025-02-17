@@ -26,7 +26,7 @@ class AsyncMultiVectorRetriever():
 
 async def get_policy_recommendation(query,FAISS_CACHE = FAISS_CACHE):
     """
-    Fetch policy and profile recommendations asynchronously.
+    Fetch policy recommendations asynchronously.
     
     Args:
         query (str): The search query.
@@ -36,15 +36,10 @@ async def get_policy_recommendation(query,FAISS_CACHE = FAISS_CACHE):
     """
 
     policy_retriever = AsyncMultiVectorRetriever(FAISS_CACHE["Policy"])
-    profile_retriever = AsyncMultiVectorRetriever(FAISS_CACHE["Profile"])
     LOGGER.info("Initialised Policy and Profile RAG")
     policy_docs = await policy_retriever.get_relevant_documents(query)
-    policy_docs, profile_docs = await asyncio.gather(
-        policy_retriever.get_relevant_documents(query),
-        profile_retriever.get_relevant_documents(query)
-    )
     LOGGER.info("Got resutls for Policy and Profile RAG")
-    return policy_docs , profile_docs
+    return policy_docs
 
 async def get_fandqs(query,FAISS_CACHE = FAISS_CACHE):
     """
