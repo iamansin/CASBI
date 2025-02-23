@@ -12,7 +12,6 @@ async def model_loading_test(query_for_fandq:str|None = None, query_for_policy :
     model_load_time = time.time()
     faiss_cache = await load_faiss_retrievers(
             policy_faiss_file="./app/faiss_indexes/policy_faiss_final_index",
-            profile_faiss_file="./app/faiss_indexes/profile_faiss_final_index",
             fandq_faiss_file="./app/faiss_indexes/fandq_faiss_index",
             services_faiss_file="./app/faiss_indexes/services_faiss_index",
             use_gpu=True  # Set False for CPU
@@ -30,12 +29,12 @@ async def model_loading_test(query_for_fandq:str|None = None, query_for_policy :
         if query_for_policy :
             print("now running the policy tool")
             policy_time = time.time()
-            policy_result, profile= await get_policy_recommendation(query_for_policy,faiss_cache)
+            policy_result= await get_policy_recommendation(query_for_policy,faiss_cache)
             print(f"The time taken to get policy results : {time.time()-policy_time}")
             print(f"Got results from the policy tool : {policy_result}")
-            print("*" * 80)
-            print(f"Got results for Profile : {profile} ")
-            print("*" * 80)
+            # print("*" * 80)
+            # print(f"Got results for Profile : {profile} ")
+            # print("*" * 80)
         if query_for_services:
             service_time = time.time()
             services_result = await get_services(query_for_services,faiss_cache)
@@ -51,5 +50,5 @@ async def model_loading_test(query_for_fandq:str|None = None, query_for_policy :
 query_for_policy = "My age is 22 i am married and one kid who is 5 years old.Can you please provide me with some good policies?"
 query_for_fandq = "how to change my address"
 query_for_services = "I want to pay my premium online"
-asyncio.run(model_loading_test(query_for_fandq=query_for_fandq, query_for_policy=query_for_policy, query_for_services=query_for_services))
+asyncio.run(model_loading_test(query_for_fandq= None, query_for_policy=query_for_policy, query_for_services=None))
     

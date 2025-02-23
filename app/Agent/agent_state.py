@@ -1,32 +1,27 @@
-from typing_extensions import Annotated, List, TypedDict, Dict, Any, Literal
+from typing_extensions import List, TypedDict, Dict, Any, Literal
 from langchain_core.messages import HumanMessage
 from pydantic import BaseModel, Field
 
 class AgentState(TypedDict):
-    message : str
-    understanding : List[str] 
-    selected_tools : List[Dict] 
-    primary_objective : List[str]
-    execution_sequence : List[List[str]]
+    message : HumanMessage
+    selected_tools : List[List[str]] 
+    primary_objective : str
     user_long_term_memory : str
     user_short_term_memory : str   
     final_response : str
     tool_redirect : bool
+    tool_results : Dict
+    next_node : str
+    thought : str
+    last_tool_results : List[str]
+    prompt : str 
     tool_query : str
-    tool_result : List[List]
-    need_parameters: List
-    function_status: List
-    parameters_used : List
-
-class ToolExecutionPlan(BaseModel):
+    
+class Initial_Output_Structure(BaseModel):
     """
     Defines the execution strategy for handling user queries by selecting and sequencing tools.
     """
-
-    understanding: str = Field(description="Concise analysis of the user's core need")
-
-    selected_tools: Dict[
-        str,
+    selected_tools: List[
         Literal['fandq_tool', 'service_tool', 'recommendation_tool', 'calculator_tool', 'final_tool']
     ] = Field(
         description="Tools required to solve the query with their execution order. Tools with the same step number will be executed in parallel.\n"
@@ -38,150 +33,81 @@ class ToolExecutionPlan(BaseModel):
     )
 
     primary_objective: str = Field(description="Clear outcome-focused goal statement")
-
-    execution_sequence: List[str] = Field(description="Ordered steps for optimal resolution")
-
+    
     class Config:
         json_schema_extra = {
   "examples": [
     {
-      "understanding": "User wants to file a claim for a car accident.",
-      "selected_tools": {
-        "step_1": "fandq_tool",
-        "step_2": "service_tool",
-        "step_3": "final_tool"
-      },
+      "selected_tools": ["service_tool"],
       "primary_objective": "Guide the user through the initial steps of filing a claim and connect them with an agent.",
-      "execution_sequence": [
-        "1. Provide FAQs about the claims process.",
-        "2. Connect the user with a customer care agent.",
-        "3. End the conversation."
-      ]
     },
     {
-      "understanding": "User is looking for a new life insurance policy.",
-      "selected_tools": {
-        "step_1": "recommendation_tool",
-        "step_2": "fandq_tool",
-        "step_3": "final_tool"
-      },
+      "selected_tools": ["recommendation_tool"],
       "primary_objective": "Guide the user through life insurance options and answer their questions.",
-      "execution_sequence": [
-        "1. Recommend suitable life insurance policies based on user needs.",
-        "2. Answer user questions about the recommended policies using FAQs.",
-        "3. End the conversation."
-      ]
     },
     {
-      "understanding": "User greets with 'Hi' or 'Hello'.",
-      "selected_tools": {
-        "step_1": "final_tool"
-      },
+      "selected_tools": ["final_tool"],
       "primary_objective": "Acknowledge the user's greeting with a friendly response.",
-      "execution_sequence": [
-        "1. Respond with a simple greeting and end the conversation."
-      ]
     },
     {
-      "understanding": "User is looking to update their policy coverage.",
-      "selected_tools": {
-        "step_1": "recommendation_tool",
-        "step_2": "fandq_tool",
-        "step_3": "final_tool"
-      },
-      "primary_objective": "Help the user explore coverage options and answer their questions.",
-      "execution_sequence": [
-        "1. Recommend relevant policy coverage options.",
-        "2. Answer user questions using FAQs.",
-        "3. End the conversation."
-      ]
+      "selected_tools": ["final_tool"],
+      "primary_objective": "Provide a direct answer without using any tool, as user is only saying hi/hello.",
     },
     {
-      "understanding": "User asks 'What is your name?'.",
-      "selected_tools": {
-        "step_1": "final_tool"
-      },
-      "primary_objective": "Provide a direct answer without using any tool.",
-      "execution_sequence": [
-        "1. Respond with the bot's name and end the conversation."
-      ]
-    },
-    {
-      "understanding": "User needs assistance with understanding their policy terms.",
-      "selected_tools": {
-        "step_1": "fandq_tool",
-        "step_2": "final_tool"
-      },
-      "primary_objective": "Provide clear explanations of policy terms.",
-      "execution_sequence": [
-        "1. Provide relevant FAQs about policy terms.",
-        "2. End the conversation."
-      ]
-    },
-    {
-      "understanding": "User wants to know the status of their submitted application.",
-      "selected_tools": {
-        "step_1": "fandq_tool",
-        "step_2": "service_tool",
-        "step_3": "final_tool"
-      },
-      "primary_objective": "Provide application status information and offer support through a customer care agent.",
-      "execution_sequence": [
-        "1. Answer FAQs about application status and processing times.",
-        "2. If the user has specific questions, connect them with a customer care agent.",
-        "3. End the conversation."
-      ]
-    },
-    {
-      "understanding": "User is interested in learning about investment options related to their insurance policy.",
-      "selected_tools": {
-        "step_1": "recommendation_tool",
-        "step_2": "fandq_tool",
-        "step_3": "final_tool"
-      },
-      "primary_objective": "Educate the user on investment-linked insurance policies.",
-      "execution_sequence": [
-        "1. Recommend relevant insurance policies with investment options.",
-        "2. Answer user questions about the investment options using FAQs.",
-        "3. End the conversation."
-      ]
-    },
-    {
-      "understanding": "User wants to calculate smoking-related costs for their insurance.",
-      "selected_tools": {
-        "step_1": "calculator_tool",
-        "step_2": "final_tool"
-      },
+      "selected_tools": ["calculator_tool"],
       "primary_objective": "Calculate and explain the impact of smoking on insurance premiums.",
-      "execution_sequence": [
-        "1. Use the calculator to determine the additional cost due to smoking.",
-        "2. Explain the results to the user.",
-        "3. End the conversation."
-      ]
-    },
-    {
-      "understanding": "User wants to calculate the potential payout of their policy.",
-      "selected_tools": {
-        "step_1": "calculator_tool",
-        "step_2": "final_tool"
-      },
-      "primary_objective": "Calculate and explain the potential policy payout.",
-      "execution_sequence": [
-        "1. Use the calculator to estimate the policy payout based on user input.",
-        "2. Explain the results to the user.",
-        "3. End the conversation."
-      ]
     }
-
+    # {
+    #   "understanding": "User wants to know the status of their submitted application.",
+    #   "selected_tools": {
+    #     "step_1": "fandq_tool",
+    #     "step_2": "service_tool",
+    #     "step_3": "final_tool"
+    #   },
+    #   "primary_objective": "Provide application status information and offer support through a customer care agent.",
+    #   "execution_sequence": [
+    #     "1. Answer FAQs about application status and processing times.",
+    #     "2. If the user has specific questions, connect them with a customer care agent.",
+    #     "3. End the conversation."
+    #   ]
+    # },
+    # {
+    #   "understanding": "User is interested in learning about investment options related to their insurance policy.",
+    #   "selected_tools": {
+    #     "step_1": "recommendation_tool",
+    #     "step_2": "fandq_tool",
+    #     "step_3": "final_tool"
+    #   },
+    #   "primary_objective": "Educate the user on investment-linked insurance policies.",
+    #   "execution_sequence": [
+    #     "1. Recommend relevant insurance policies with investment options.",
+    #     "2. Answer user questions about the investment options using FAQs.",
+    #     "3. End the conversation."
+    #   ]
+    # },
+    
   ]
 }
 
-class Output_Structure(BaseModel):
+class Thinker_Output_Structure(BaseModel):
+  selected_tools : List[str] = Field(description="This field contains the list of tools that has to be executed.")
+  
+class Final_Output_Structure(BaseModel):
     response : str =Field(description="This field contains final results.")
     
 class Memory_Structured_Output(BaseModel):
     long_term_memory : str | None = Field(description="This field contains the long term memory that has been extracted from the session converstation.")
-    
+
+class Final_Tool_Structure(BaseModel):
+  think_more : bool = Field(description="This field is a boolean value, if there is more information required to proceed further then True else if current inforamtion is sufficient then False.")
+  thought : str | None = Field(description="This field contains the thought that the Thinker node will use to get more clear instructions on procceding further. If Current information is sufficient then this field will be None.")
+  response : str | None = Field(description="This field contains the response that has to be sent to the user. If there is no response then this field will be None.")
+  
+class Observer_Output_Structure(BaseModel):
+  prompt : str = Field(description= "This field contains the prompt that has to passed to other node to generate/ think of using next step or tool to use.")
+  next_node : Literal["final_node", "thinker_node"] = Field(description= "This fiel contains the name of next node to be selected.")
+  tool_query : str|None = Field(description= "This field contains enhanced query for the tool. If tool to use this field contains a str else None")
+
 class Calculator_Tool_Structure(BaseModel):
     function : str = Field(description="This is the function that has to be called.")
     parameters : dict = Field(description="This dict contains the parameters as keys and their values")

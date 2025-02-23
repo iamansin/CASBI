@@ -10,24 +10,26 @@ import time
 from langchain_core.runnables.config import RunnableConfig
 from app.Utils.config import GROQ_API_KEY
 groq = ChatGroq(api_key = GROQ_API_KEY, model="llama-3.3-70b-versatile", temperature=0.0)
-llm_dict = {"Groq":groq,}
+llm_dict = {"main_llm":groq}
 agent = Whatsapp_Agent(llm_dict=llm_dict)
 
 
 async def testing_function(state):
     start = time.time()
     res = await agent.graph.ainvoke(state, stream_mode="values")
-    print(res)
-    print(res.get("final_response", "No response"))
+    for key,val in res.items():
+        print("*"*10)
+        print(f"{key} : {val}")
+
 
     print(f"Time taken to execute the function is {time.time()-start}")
 
-query = "how much does it cost to smoke 10 cigarettes per day for 1 year if each pack costs 100 rupees and each pack contains 20 cigarettes?"
+query = "can you please suggest me some policies?"
 
 state : AgentState = {
     "message" : HumanMessage(content=query),
-    "user_long_term_memory" : ["User's Name is Aman, he is single not married. He is an AI developer at SBI Bank. He lives in rajasthan jaipur."],
-    "user_short_term_memory" : ["User greets with 'Hi' or 'Hello'."],
+    "user_long_term_memory" : ["User's Name is Aman, he is single not married. He is an AI developer at SBI Bank. He lives in rajasthan jaipur. User is a smoker."],
+    "user_short_term_memory" : [" 'user' : 'hi , 'assistant' : 'hello how may i help you today' , 'user' : 'i was thinking of getting some policy', 'assistant' : 'Sure i am right here to help you in selecting best policies for you, tell me more specificly so that i can help you better.' , 'user' : 'but firstly i was thinking of getting some calcuations about my self so as to know which policy to take, i smoke very much i think that i might affect my decision.', 'assistance' : 'ok sir ill get back to you.'' "],
     "tool_redirect" : False,
 }      
 asyncio.run(testing_function(state))

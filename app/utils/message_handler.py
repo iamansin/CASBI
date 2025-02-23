@@ -1,7 +1,7 @@
 import httpx
-from .config import PHONE_NUMBER_ID, VERSION
+from .config import PHONE_NUMBER_ID, VERSION,ACCESS_TOKEN
 from .logger import LOGGER
-ACCESS_TOKEN="EAAdMNBkxpuoBOZBZCgAMKmZANkkBJ14ZBUoYGDLDTs0iQkH8FiLfj0MZCGZBSSSorNsgnXYJzSff8so3zSlcy5reiSQuZBmxXrc6KR6O3xmOhM7RAGAwSOwEPUKcbBSQKGiEes2AZAfiWIWr5dMZBRw77TXyiSOpxctlHokMoYNCXFIUWqzwDUZA9kLjqXkfTdbNpZA1xsmM0VmPgslb4CUI65vAeqe6AicRw44Y0cZD"
+# ACCESS_TOKEN="EAAdMNBkxpuoBOZBZCgAMKmZANkkBJ14ZBUoYGDLDTs0iQkH8FiLfj0MZCGZBSSSorNsgnXYJzSff8so3zSlcy5reiSQuZBmxXrc6KR6O3xmOhM7RAGAwSOwEPUKcbBSQKGiEes2AZAfiWIWr5dMZBRw77TXyiSOpxctlHokMoYNCXFIUWqzwDUZA9kLjqXkfTdbNpZA1xsmM0VmPgslb4CUI65vAeqe6AicRw44Y0cZD"
 HEADERS = {
     "Authorization": f"Bearer {ACCESS_TOKEN}",
     "Content-Type": "application/json"
@@ -25,7 +25,7 @@ async def send_whatsapp_message(recipient_id: str, text: str | None):
     try :
         async with httpx.AsyncClient() as client:
             response = await client.post(url, headers=HEADERS, json=payload)
-            print(response.status_code, response.text)
+            # print(response.status_code, response.text)
             LOGGER.info(f"Sent message to {recipient_id}| Status: {response.status_code}")
     
     except Exception as e:

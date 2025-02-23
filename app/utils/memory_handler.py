@@ -1,3 +1,6 @@
+import os
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 import asyncio
 import redis.asyncio as aioredis
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -8,7 +11,7 @@ from langchain_core.prompts import PromptTemplate
 from datetime import datetime, timedelta
 from langchain.output_parsers import PydanticOutputParser
 from langchain_groq import ChatGroq
-from Agent.agent_state import Memory_Structured_Output
+from app.Agent.agent_state import Memory_Structured_Output
 from .config import GROQ_API_KEY, MONGO_CLIENT, REDIS_HOST, REDIS_PORT, MONGO_COLLECTION, MONGO_DB
 
 LLM = ChatGroq(api_key = GROQ_API_KEY, model="llama-3.3-70b-versatile", temperature=0.0)
@@ -28,7 +31,7 @@ db = mongo_client[MONGO_DB]
 collection = db[MONGO_COLLECTION]
 
 # Expiry time for Redis cache (10 minutes)
-REDIS_EXPIRY = 10  # 10 minutes
+REDIS_EXPIRY = 120  # 10 minutes
 
 async def retrieve_memory(phone_number: str) -> dict:
     """
@@ -36,36 +39,36 @@ async def retrieve_memory(phone_number: str) -> dict:
     First, it checks Redis for cached memory. If not found, it fetches from MongoDB,
     updates Redis, and returns the memory as a list of strings.
     """
-    LOGGER.info(f"Starting memory retrieval for phone number: {phone_number}")
+    # LOGGER.info(f"Starting memory retrieval for phone number: {phone_number}")
     redis_key = f"user_memory:{phone_number}"
     
     # Check Redis first
-    LOGGER.info(f"Checking Redis for key: {redis_key}")
+    # LOGGER.info(f"Checking Redis for key: {redis_key}")
     memory_json = await redis_client.get(redis_key)
     
     if memory_json:
         LOGGER.info(f"Found cached memory in Redis for phone number: {phone_number}")
         try:
             mem = json.loads(memory_json)
-            LOGGER.info(f"Successfully parsed Redis memory data for phone number: {phone_number}")
-            LOGGER.info(f"The memory is {mem}")
+            # LOGGER.info(f"Successfully parsed Redis memory data for phone number: {phone_number}")
+            LOGGER.info(f"The memory is from cache is : {mem}")
             return mem
         except json.JSONDecodeError as e:
             LOGGER.error(f"Failed to parse Redis memory data for phone number {phone_number}: {str(e)}")
             return {"long_term_memory": ["Error retrieving memory"]}
 
     # If not in Redis, retrieve from MongoDB
-    LOGGER.info(f"No Redis cache found. Querying MongoDB for phone number: {phone_number}")
+    # LOGGER.info(f"No Redis cache found. Querying MongoDB for phone number: {phone_number}")
     user_data = await collection.find_one({"phone_number": phone_number}, {"_id": 0, "long_term_memory": 1})
 
     if user_data and "long_term_memory" in user_data:
-        LOGGER.info(f"Found memory in MongoDB for phone number: {phone_number}")
+        # LOGGER.info(f"Found memory in MongoDB for phone number: {phone_number}")
         memory = {"long_term_memory" : user_data["long_term_memory"], "short_term_memory" : []}
         LOGGER.info(f"The memory is {user_data["long_term_memory"]}")
         try:
             # Store in Redis with expiry
             await redis_client.setex(redis_key, 300, json.dumps(memory))
-            LOGGER.info(f"Successfully cached MongoDB memory in Redis for phone number: {phone_number}")
+            # LOGGER.info(f"Successfully cached MongoDB memory in Redis for phone number: {phone_number}")
             return memory
         except Exception as e:
             LOGGER.error(f"Failed to cache MongoDB memory in Redis for phone number {phone_number}: {str(e)}")
@@ -79,25 +82,27 @@ async def store_memory(phone_number: str, new_messages: dict, timers: dict):
     Stores short-term memory in Redis for fast retrieval.
     Resets the timer on new messages. Transfers long-term memory to MongoDB after 10 min of inactivity.
     """
-    LOGGER.info(f"Starting memory storage process for phone number: {phone_number}")
+    # LOGGER.info(f"Starting memory storage process for phone number: {phone_number}")
     redis_key = f"user_memory:{phone_number}"
     last_message_key = f"last_message:{phone_number}"
 
     # Retrieve existing short-term memory from Redis
-    LOGGER.info(f"Retrieving existing memory from Redis for key: {redis_key}")
+    # LOGGER.info(f"Retrieving existing memory from Redis for key: {redis_key}")
     existing_memory_json = await redis_client.get(redis_key)
     
     try:
         existing_memory = json.loads(existing_memory_json) if existing_memory_json else {"long_term_history":[] ,"short_term_memory": []}
-        LOGGER.info(f"Successfully parsed existing memory for phone number: {phone_number}")
+        # LOGGER.info(f"Successfully parsed existing memory for phone number: {phone_number}")
     except json.JSONDecodeError as e:
         LOGGER.error(f"Failed to parse existing memory for phone number {phone_number}: {str(e)}")
         existing_memory = {"long_term_history":[] ,"short_term_memory": []}
  
     # Process new messages
-    LOGGER.info(f"Processing {len(new_messages)} new messages for phone number: {phone_number}")
+    # print(f"Retrieved existing memory -> {existing_memory}")
+    # LOGGER.info(f"Processing {len(new_messages)} new messages for phone number: {phone_number}")
     existing_memory["short_term_memory"].extend(new_messages["short_term_memory"])
-    LOGGER.info(f"Added new short-term memory for phone number: {phone_number}")
+    # print(f"Storing the new edited memory existing_memory : {existing_memory}")
+    # LOGGER.info(f"Added new short-term memory for phone number: {phone_number}")
     # LOGGER.info(f"new memory is {existing_memory}")
     now_timestamp = datetime.utcnow().timestamp()
     try:
@@ -105,23 +110,23 @@ async def store_memory(phone_number: str, new_messages: dict, timers: dict):
             pipe.setex(redis_key, 300 ,json.dumps(existing_memory))
             pipe.set(last_message_key, now_timestamp)
             await pipe.execute()
-            LOGGER.info(f"Successfully stored memory in Redis for phone number: {phone_number}")
+            # LOGGER.info(f"Successfully stored memory in Redis for phone number: {phone_number}")
     except Exception as e:
         LOGGER.error(f"Failed to store memory in Redis for phone number {phone_number}: {str(e)}")
 
     # Reset and start a new timer
     if phone_number in timers:
-        LOGGER.info(f"Cancelling existing timer for phone number: {phone_number}")
+        # LOGGER.info(f"Cancelling existing timer for phone number: {phone_number}")
         timers[phone_number].cancel()
     
-    LOGGER.info(f"Creating new memory transfer timer for phone number: {phone_number}")
+    # LOGGER.info(f"Creating new memory transfer timer for phone number: {phone_number}")
     timers[phone_number] = asyncio.create_task(schedule_mongo_transfer(phone_number))
 
 async def schedule_mongo_transfer(phone_number: str):
     """
     Waits for 10 minutes of inactivity before transferring long-term memory from Redis to MongoDB.
     """
-    LOGGER.info(f"Starting memory transfer scheduler for phone number: {phone_number}")
+    # LOGGER.info(f"Starting memory transfer scheduler for phone number: {phone_number}")
     await asyncio.sleep(REDIS_EXPIRY)  # 10 minutes delay
     LOGGER.info(f"Waking up after {REDIS_EXPIRY} seconds for phone number: {phone_number}")
 

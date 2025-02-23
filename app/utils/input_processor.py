@@ -2,6 +2,9 @@ from groq import Groq
 import aiofiles
 import os
 import httpx
+import PyPDF2
+import io
+from docx import Document 
 import tempfile
 from .config import GROQ_API_KEY
 from .logger import LOGGER
@@ -17,7 +20,7 @@ HEADERS = {
 }
 Groq_Client = Groq(api_key=GROQ_API_KEY)
 
-async def download_and_process(media_id: str, media_type: str):
+async def download_and_process(media_id: str, media_type: str, mime_type : str | None = None):
     """
     Downloads media (image/audio) from WhatsApp servers using the media ID and saves it locally.
     """
@@ -63,13 +66,18 @@ async def download_and_process(media_id: str, media_type: str):
 
                 if media_type == "image":
                     text = await process_image_input(temp_file_path)
-                else:
+                elif media_type == "document": 
+                    text = await process_document_input(temp_file_path, mime_type)
+                elif media_type == "audio": 
                     text = await process_audio_input(temp_file_path)
+                else:
+                    LOGGER.warning(f"Unknown media type for processing: {media_type}")
+                    text = "Unsupported media type." 
                 
         except Exception as e:
             LOGGER.error(f"Error processing media file: {e}")
             text = None
-    LOGGER.info(f"Processed text: {text}")
+    # LOGGER.info(f"Processed text: {text}")
     return text
 
 async def process_audio_input(audio_file_path : str):
@@ -143,11 +151,42 @@ async def process_image_input(image_file_path : str):
                 stream=False,
             )
 
-    
+
         LOGGER.info(f"Time taken to process the image:{time.time() - start_time}, Model response time : {time.time()- response_time}")
-        return completion.choices[0].message
+        return completion.choices[0].message.content
 
     except Exception as e:
         LOGGER.error(f"Error processing image file: {e}")
         return None
+    
+async def process_document_input(document_file_path: str, mime_type: str):
+    """This function will take document as input and process it,
+    for extracting information.
+    document : str (path for document to be processed)
+    """
+    start_time = time.time()
+    LOGGER.info(f"Processing document file {document_file_path}...")
+    try:
+        if mime_type == "application/pdf":
+                pdf_reader = PyPDF2.PdfReader(document_file_path)
+                text = ""   
+                if len(pdf_reader.pages) > 3:
+                    return "The Document is too long cannot parse it !"
+                for page_num in range(len(pdf_reader.pages)): 
+                    page = pdf_reader.pages[page_num] 
+                    text += page.extract_text()
+                LOGGER.info(f"Time taken to process the PDF: {time.time() - start_time}")
+                return text
+        elif mime_type in ["application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]:
+            word_document = Document(document_file_path)
+            text = ""
+            for paragraph in word_document.paragraphs:
+                text += paragraph.text + "\n"
+            LOGGER.info(f"Time taken to process the Word document: {time.time() - start_time}")
+            return text
+        else:
+            LOGGER.warning(f"Unsupported document type: {mime_type}")
+            return "Unsupported document type."
+    except Exception as e:
+        LOGGER.error(f"Error processing document file: {e}")
 

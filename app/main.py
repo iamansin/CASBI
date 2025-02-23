@@ -25,9 +25,9 @@ async def lifespan(app: FastAPI):
 
         # Load FAISS indexes once during startup
         await load_faiss_retrievers(
-            policy_faiss_file="./app/faiss_indexes/policy_faiss_index",
-            profile_faiss_file="./app/faiss_indexes/profile_faiss_index",
+            policy_faiss_file="./app/faiss_indexes/policy_faiss_final_index",
             fandq_faiss_file="./app/faiss_indexes/fandq_faiss_index",
+            services_faiss_file="./app/faiss_indexes/services_faiss_index",
             use_gpu=True  # Set False for CPU
         )
         LOGGER.info("***** FAISS indexes loaded successfully *****")

@@ -19,3 +19,6 @@ faiss-cpu
 faiss-gpu
 torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124 
 pandas
+python-docx
+pypdf2
+aiosqlite

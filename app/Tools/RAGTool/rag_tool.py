@@ -1,7 +1,6 @@
 import os
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
-import asyncio
 import traceback
 import os
 from Utils.faiss_loader import  FAISS_CACHE
