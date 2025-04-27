@@ -11,8 +11,8 @@ from langchain_groq import ChatGroq
 from langchain_core.messages import HumanMessage
 
 # Initialize the agent
-groq_mistral = ChatGroq(api_key = GROQ_API_KEY, model="llama-3.3-70b-specdec", temperature=0.0)
-groq_llama = ChatGroq(api_key=GROQ_API_KEY,model="deepseek-r1-distill-llama-70b")
+groq_mistral = ChatGroq(api_key = GROQ_API_KEY, model="qwen-2.5-32b", temperature=0.0)
+groq_llama = ChatGroq(api_key=GROQ_API_KEY,model="llama-3.3-70b-versatile")
 llm_dict = {"main_llm":groq_mistral, "fall_back_llm": groq_llama }
 agent = Whatsapp_Agent(llm_dict=llm_dict)
 TIMERS = {}

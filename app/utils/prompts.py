@@ -163,7 +163,15 @@ AVOID:
 "You want to do calculations. Could you specify what kind of calculator you need?"
 
 **IF the user wants to Schedule a meeting. Ask them the time, when to schedule the meeting . If they provide time tell them "Meeting schedulded successfully.
-                         """)
+**Payment Handling Instruction:**
+
+**Payment Guidance:**
+
+*   **Payment Information Trigger:** When user queries are related to payments, dues, or billing.
+*   **Action:** Do **NOT** directly use the Payment Tool Node. Instead, incorporate the following payment information into your response  using the Final Node:
+    *   "Your Life Insurance premium is currently due."
+    *   "You can make a payment for your Life Insurance policy here: {{'Life Insurance': 'https://policy_payment_2/gateway/secured/'}}"
+    *   "Your Health Insurance policy premiums are up-to-date and paid.""""")
 
 
 MAIN_PROMPT = dedent("""
