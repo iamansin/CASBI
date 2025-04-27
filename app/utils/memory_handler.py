@@ -51,7 +51,9 @@ async def retrieve_memory(phone_number: str) -> dict:
         try:
             mem = json.loads(memory_json)
             # LOGGER.info(f"Successfully parsed Redis memory data for phone number: {phone_number}")
-            LOGGER.info(f"The memory is from cache is : {mem}")
+            
+            
+           # LOGGER.info(f"The memory is from cache is : {mem}")
             return mem
         except json.JSONDecodeError as e:
             LOGGER.error(f"Failed to parse Redis memory data for phone number {phone_number}: {str(e)}")
@@ -64,7 +66,7 @@ async def retrieve_memory(phone_number: str) -> dict:
     if user_data and "long_term_memory" in user_data:
         # LOGGER.info(f"Found memory in MongoDB for phone number: {phone_number}")
         memory = {"long_term_memory" : user_data["long_term_memory"], "short_term_memory" : []}
-        LOGGER.info(f"The memory is {user_data["long_term_memory"]}")
+        #LOGGER.info(f"The memory is {user_data["long_term_memory"]}")
         try:
             # Store in Redis with expiry
             await redis_client.setex(redis_key, 300, json.dumps(memory))
@@ -74,7 +76,7 @@ async def retrieve_memory(phone_number: str) -> dict:
             LOGGER.error(f"Failed to cache MongoDB memory in Redis for phone number {phone_number}: {str(e)}")
             return memory
 
-    LOGGER.info(f"No existing memory found. New user detected: {phone_number}")
+    #LOGGER.info(f"No existing memory found. New user detected: {phone_number}")
     return {"long_term_memory" : ["No previous memory, New user"], "short_term_memory" : [""]}
 
 async def store_memory(phone_number: str, new_messages: dict, timers: dict):
@@ -136,7 +138,7 @@ async def schedule_mongo_transfer(phone_number: str):
     # Retrieve last message timestamp
     last_timestamp = await redis_client.get(last_message_key)
     if last_timestamp and (datetime.utcnow().timestamp() - float(last_timestamp)) < REDIS_EXPIRY:
-        LOGGER.info(f"Recent activity detected for phone number: {phone_number}, skipping transfer")
+        #LOGGER.info(f"Recent activity detected for phone number: {phone_number}, skipping transfer")
         return
 
     # Retrieve memory from Redis
@@ -155,9 +157,9 @@ async def schedule_mongo_transfer(phone_number: str):
 
     # Extract long-term history only
     short_term_memory = existing_memory.get("short_term_memory", [])
-    LOGGER.info(f"Extracting long-term memory for phone number: {phone_number}")
+    #LOGGER.info(f"Extracting long-term memory for phone number: {phone_number}")
     to_be_saved_memory = await extract_long_term_memory(short_term_memory)
-    LOGGER.info(f"The memory to for long term future edits {to_be_saved_memory}")
+    #LOGGER.info(f"The memory to for long term future edits {to_be_saved_memory}")
     if to_be_saved_memory:
         LOGGER.info(f"Transferring memory to MongoDB for phone number: {phone_number}")
         await transfer_long_term_to_mongo(phone_number, to_be_saved_memory)
@@ -193,7 +195,7 @@ async def extract_long_term_memory(short_term_memory: list[str]) -> str | bool:
     """
     Extracts long-term memory from short-term memory.
     """
-    LOGGER.info("Starting long-term memory extraction")
+    #LOGGER.info("Starting long-term memory extraction")
     LOGGER.info(f"Processing {len(short_term_memory)} short-term memory items")
     mem = " ".join(short_term_memory)
     parser = PydanticOutputParser(pydantic_object=Memory_Structured_Output)
@@ -201,11 +203,11 @@ async def extract_long_term_memory(short_term_memory: list[str]) -> str | bool:
     message = temp.format(session_conversation=mem)
     
     try:
-        LOGGER.info("Invoking LLM for memory extraction")
+        #LOGGER.info("Invoking LLM for memory extraction")
         strucuted_llm = LLM.with_structured_output(Memory_Structured_Output)
         response = await strucuted_llm.ainvoke(message)
         if response.long_term_memory and response.long_term_memory not in {"None", None}:
-            LOGGER.info("Successfully extracted long-term memory")
+            #LOGGER.info("Successfully extracted long-term memory")
             return response.long_term_memory
         LOGGER.warning("No content returned from LLM during memory extraction")
         return False

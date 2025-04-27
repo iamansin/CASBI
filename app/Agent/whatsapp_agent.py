@@ -64,14 +64,14 @@ class Whatsapp_Agent:
         
         for attempt in range(1,4):
             try:
-                LOGGER.info(f"Attempt {attempt}: Invoking LLM")
+                #LOGGER.info(f"Attempt {attempt}: Invoking LLM")
                 structured_response = await llm_structured.ainvoke(message)
                 if structured_response:
                     return structured_response
                 continue
             except Exception as e:
                 LOGGER.error(f"Attempt {attempt} failed: {str(e)}")
-                LOGGER.info("Retrying...")
+                #LOGGER.info("Retrying...")
         # If all retries fail, raise an exception
         LOGGER.critical("Failed to get a structured response from the LLM after 3 attempts.")
         fall_back_llm = self._llm_dict["fall_back_llm"].with_structured_output(output_structure)
@@ -79,7 +79,7 @@ class Whatsapp_Agent:
         try:
             structured_response = await fall_back_llm.ainvoke(message)
             if structured_response:
-                LOGGER.info(f"Recieved result is : {structured_response}")
+                #LOGGER.info(f"Recieved result is : {structured_response}")
                 return structured_response
         except Exception as e:
             LOGGER.error(f"Attempt failed: {str(e)}")
@@ -96,8 +96,8 @@ class Whatsapp_Agent:
         state["next_node"] = response.next_node 
         state["prompt"] = response.prompt
         state["tool_query"] = response.tool_query
-        print(f"NEXT NODE : {response.next_node} ")
-        print(f" PROMPT : {response.prompt}")
+        #print(f"NEXT NODE : {response.next_node} ")
+        #print(f" PROMPT : {response.prompt}")
         print(f"TOOL_query : {response.tool_query}")
         return state
     
@@ -152,11 +152,11 @@ class Whatsapp_Agent:
                     
                     state.setdefault("selected_tools",[]).append(response.selected_tools)
                     state["primary_objective"] = response.primary_objective
-                    print(f"selected tool : {response.selected_tools}")
-                    print(f"primary objective : {response.primary_objective}")
+                    #print(f"selected tool : {response.selected_tools}")
+                    #print(f"primary objective : {response.primary_objective}")
                 except Exception as e: # Handle any other exception during direct request
                     LOGGER.error(f"Error during direct request processing: {e}")
-                    raise e
+                    raise 
 
         # LOGGER.info("State updated now forwarding to next node")
         return state
@@ -236,7 +236,7 @@ class Whatsapp_Agent:
                                             Set to "final_node" when no tools are used, indicating the final response node.
                 - final_response (str, optional): Set to the LLM's final response when no tools are used.
         """
-        LOGGER.info("Inside validation node")
+        #LOGGER.info("Inside validation node")
         message = state["message"].content
         prompt = state["prompt"]
         
@@ -274,7 +274,7 @@ class Whatsapp_Agent:
             response = await self.get_structured_response(Final_Output_Structure, FINAL_PROMPT,
                                                         prompt = prompt,
                                                         user_message=message)
-            print("Response in validation node:",response)
+            #print("Response in validation node:",response)
 
         state["final_response"] = response.response
         state["next_node"] = "final_node"
@@ -284,7 +284,7 @@ class Whatsapp_Agent:
     async def Router(self,state : AgentState):
         # LOGGER.info("INTO router node")
         next_node = state["next_node"]
-        LOGGER.info(f"Next node is : {next_node}")
+       # LOGGER.info(f"Next node is : {next_node}")
         if next_node == "think_more":
             return "think_more"
         return "end"

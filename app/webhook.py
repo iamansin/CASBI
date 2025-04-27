@@ -11,7 +11,7 @@ from langchain_groq import ChatGroq
 from langchain_core.messages import HumanMessage
 
 # Initialize the agent
-groq_mistral = ChatGroq(api_key = GROQ_API_KEY, model="qwen-2.5-32b", temperature=0.0)
+groq_mistral = ChatGroq(api_key = GROQ_API_KEY, model="llama-3.3-70b-versatile", temperature=0.0)
 groq_llama = ChatGroq(api_key=GROQ_API_KEY,model="llama-3.3-70b-versatile")
 llm_dict = {"main_llm":groq_mistral, "fall_back_llm": groq_llama }
 agent = Whatsapp_Agent(llm_dict=llm_dict)
@@ -39,7 +39,7 @@ async def receive_message(request: Request):
     Handles incoming WhatsApp messages.
     """
     payload = await request.json()
-    LOGGER.info(f"Received payload: {payload}")
+   # LOGGER.info(f"Received payload: {payload}")
 
     # Ensure it's a valid WhatsApp message
     for entry_data in payload.get("entry", []):
