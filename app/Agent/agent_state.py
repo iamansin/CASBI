@@ -16,19 +16,21 @@ class AgentState(TypedDict):
     last_tool_results : List[str]
     prompt : str 
     tool_query : str
+    existing_user : bool
     
 class Initial_Output_Structure(BaseModel):
     """
     Defines the execution strategy for handling user queries by selecting and sequencing tools.
     """
     selected_tools: List[
-        Literal['fandq_tool', 'service_tool', 'recommendation_tool', 'calculator_tool', 'final_tool']
+        Literal['fandq_tool', 'service_tool', 'recommendation_tool', 'calculator_tool', 'payment_tool','final_tool']
     ] = Field(
         description="Tools required to solve the query with their execution order. Tools with the same step number will be executed in parallel.\n"
                     "\n🔹 **service_tool** → Use only for user complaints or requests that need human customer care assistance."
                     "\n🔹 **recommendation_tool** → Use only if the user expresses interest in policy recommendations."
                     "\n🔹 **fandq_tool(Frequently Asked Questions Database)** → Use only if the user’s question closely matches FAQs. Do not use for casual greetings."
                     "\n🔹 **calculator_tool** → Use only when there is a need to a calculate something or if the user specifically asks for some calculations."
+                    "\n🔹 **payment_tool** → Use only when there is a request for a payment after user has asked for policy recommendation."
                     "\n🔹 **final_tool** → Use this as default for simple responses (e.g., greetings, acknowledgments, confirmations)."
     )
 
@@ -88,7 +90,6 @@ class Initial_Output_Structure(BaseModel):
     
   ]
 }
-
 class Thinker_Output_Structure(BaseModel):
   selected_tools : List[str] = Field(description="This field contains the list of tools that has to be executed.")
   
@@ -263,3 +264,10 @@ class Calculator_Tool_Structure(BaseModel):
 }
     
   ]}
+class Payment_Tool_Structure(BaseModel):
+  selected_policies:str=Field(description="This gives existing policies the user holds and their status along with newly selected policies if any. The policies should be "
+  "displayed in this format:"
+  "policy_name:status"
+  "The status can be:accepted, declined, modified,to be payed")
+  payment_url:str=Field(description="This is to provide a payment url of the form:https://www.samplepaymenturl.com")
+  

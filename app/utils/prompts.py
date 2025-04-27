@@ -25,7 +25,7 @@ from textwrap import dedent
 #     *   **Functionality:** Provides policy recommendations based on user profiles, needs, and potentially long-term memory of their preferences.
 #     *   **When to Route Here:** Route to the Recommendation Tool Node when the user is asking for advice, suggestions, or exploring policy options. Keywords suggesting recommendation seeking like 'recommend', 'suggest', 'advise', 'options for', 'best policy', 'suitable for', and policy-related comparative questions are indicators.
 
-# *   **Payment Tool Node:**
+                       # *   **Payment Tool Node:**
 #     *   **Functionality:** Handles payment related operations, allowing users to pay policy premiums or manage payment methods.
 #     *   **When to Route Here:** Route to the Payment Tool Node when the user explicitly mentions payment, premiums, billing, or financial transactions related to their policy. Keywords such as 'pay', 'payment', 'premium', 'bill', 'invoice', 'amount due', 'transaction', 'card details' are strong indicators.
 
@@ -40,7 +40,7 @@ from textwrap import dedent
 #         *   If the user's message is unclear, ambiguous, or lacks sufficient information to route to a tool effectively. In these cases, the Final Node will generate a clarifying question for the user.
 #         *   If after tool usage, the conversation needs to return to a natural language response to the user.
 
-# **Output Requirements and Prompt Generation:**
+                       # **Output Requirements and Prompt Generation:**
 
 # Your primary task is to generate a prompt for the *next* node. This prompt **must** incorporate relevant information to ensure the next node can effectively process the user's request.
 
@@ -99,15 +99,16 @@ Keywords: update, change, apply, initiate, check status, download
 
 Recommendation Tool 
 
-Purpose: Provide policy recommendations based on user profile
+Purpose: Provide policy recommendations based on user profile. Do not make up policies of your own only present with the retrieved policies. Take into
+account the Long-Term Memory and Session Memory of the user while suggesting policies as well.
 Route When: User seeks advice or policy options
 Keywords: recommend, suggest, advise, options for, best policy, suitable for
 
 Payment Tool 
 
-Purpose: Handle payment operations
-Route When: User mentions payments or financial transactions
-Keywords: pay, payment, premium, bill, invoice, amount due, transaction
+Purpose: Handle payment operations and also displays existing or recently selected policies along with their status.
+Route When: User mentions payments or financial transactions.
+Keywords: pay, payment, premium, bill, invoice, amount due, transaction.
 
 Calculator Tool 
 
@@ -299,6 +300,10 @@ Here are the tools at your disposal, along with precise descriptions of their fu
         * **Calculation Result:** If sufficient information exists, the tool will return the **calculated value**.
         * **Parameter Request:** If information is missing, the tool will **specify required parameters.**
 
+**5. Payment Tool:
+    * **Tool Purpose:** This tool provides a url to make payment for the user's selected policy. It's invoked only after user has taken a policy recommendation and selected a policy to buy.
+    * **Expected Tool Result:** When invoked, it should only provide with the url.
+
 **Contextual Information for Response Generation:**
 
 The user's message is: `{user_message}`.
@@ -388,4 +393,33 @@ Session history : {session_memory}
 also if there are any parameter that are not available in the memory you must return need_more_info = True , else False,
 
 You Must Tell the user what are the parameters that you need, in proper format if parameters are missing.
+""")
+
+
+POLICY_PAYMENT_PROMPT=dedent("""
+Your main role is to check which policies is the user holding and provide a sample url for payment of the policies. You are provided the following memories to analyse and check for existing policies.:-
+1.Long term memory:{long_term_memory}
+2.Short term memory:{short_term_memory}
+
+Task:
+- Analyze both memories to find all selected policies.
+- If the same policy appears in both memories, prioritize the version from short_term_memory.
+- Merge all unique selected policies into one final list.
+
+Output Instructions:
+- Return the merged policies in a neat format.
+- Each policy should be listed on a new line.
+- For each policy, include the policy name and its status (e.g., accepted, declined, modified).
+- Format the output like this:
+    - Policy Name: [Status]
+    - Policy Name: [Status]
+    - ...
+- The payment site should be mentioned as :https://www.samplepaymenturl.com. Only give this site as the link do not create any links on your own.
+
+Example Output:
+- SBI Life Smart Privilege Plus: accepted
+- SBI Life Retire Smart Plus: declined
+
+Only return the formatted list. Do not add any extra explanation.
+                           
 """)

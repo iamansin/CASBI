@@ -9,8 +9,8 @@ import asyncio
 from pydantic import BaseModel
 from .agent_state import (AgentState, Initial_Output_Structure, 
                           Final_Output_Structure, Final_Tool_Structure,
-                          Thinker_Output_Structure, Calculator_Tool_Structure, Observer_Output_Structure)
-from app.Utils.prompts import MAIN_PROMPT, FINAL_PROMPT, CALCULATOR_PROMPT, FINAL_TOOL_PROMPT, THINKER_PROMPT, OBSERVER_PROMPT
+                          Thinker_Output_Structure, Calculator_Tool_Structure, Observer_Output_Structure,Payment_Tool_Structure)
+from app.Utils.prompts import MAIN_PROMPT, FINAL_PROMPT, CALCULATOR_PROMPT, FINAL_TOOL_PROMPT, THINKER_PROMPT, OBSERVER_PROMPT,POLICY_PAYMENT_PROMPT
 from app.Tools.RAGTool.rag_tool import get_fandqs, get_policy_recommendation, get_services
 from app.Tools.REPLTool.repl_tool import Run_Python_Script
 
@@ -23,7 +23,8 @@ class Whatsapp_Agent:
             "recommendation_tool": self.Recommendation_tool,
             "fandq_tool": self.FAQ_tool,
             "service_tool": self.Services_tool,
-            "calculator_tool": self.Calculator_tool
+            "calculator_tool": self.Calculator_tool,
+            "payment_tool": self.Payment_tool
         }
         self.graph = self.compile_graph()
         
@@ -273,6 +274,7 @@ class Whatsapp_Agent:
             response = await self.get_structured_response(Final_Output_Structure, FINAL_PROMPT,
                                                         prompt = prompt,
                                                         user_message=message)
+            print("Response in validation node:",response)
 
         state["final_response"] = response.response
         state["next_node"] = "final_node"
@@ -295,6 +297,7 @@ class Whatsapp_Agent:
             resutls = await get_policy_recommendation(tool_query) 
             LOGGER.info("Successfully got result from Recommendation tool")
         except Exception as e:
+
             LOGGER.error(f"Error getting response from Recommendation tool: {e}")
             return {"documents": ["Not able to get the results right now"]} 
 
@@ -387,3 +390,22 @@ class Whatsapp_Agent:
         except Exception as e:
             LOGGER.error(f"There was some problem while getting response from the calculator tool : {e}")
             return {"result" : "Not able to get the results due to some problem"}
+    
+    async def Payment_tool(self,state:AgentState,tool_query:str)->dict:
+        result={}
+        long_term_memory=state["user_long_term_memory"]
+        short_term_memory=state["user_short_term_memory"]
+        if long_term_memory:
+            payment_prompt=POLICY_PAYMENT_PROMPT.format(long_term_memory=long_term_memory,short_term_memory=short_term_memory)
+        else:
+            payment_prompt=POLICY_PAYMENT_PROMPT.format(long_term_memory=None,short_term_memory=short_term_memory)
+        try:
+            response= await self.get_structured_response(Payment_Tool_Structure,payment_prompt,user_message=tool_query,
+                                                        user_memory=state["user_long_term_memory"],session_memory=state["user_short_term_memory"])
+            result["selected_policies"]=response.selected_policies
+            result["payment_url"]=response.payment_url
+            return result   
+        except Exception as e:
+            LOGGER.error(f"There was some problem while getting response from the payment tool : {e}")
+            return {"result" : "Not able to get the results due to some problem"}
+            
